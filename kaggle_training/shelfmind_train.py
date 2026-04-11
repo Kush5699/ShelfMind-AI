@@ -102,6 +102,7 @@ print(f"Figures: {FIG_DIR}")
 # Dataset: 8,219 train + 588 val + 2,936 test images
 # Classes: 1 (object/product on shelf)
 # Source: CVPR 2019 paper "Precise Detection in Densely Packed Scenes"
+# Model: YOLO26s (Jan 2026) — NMS-free, 43% faster on CPU, STAL for small objects
 
 # %%
 from ultralytics import YOLO
@@ -216,8 +217,8 @@ yolo_yaml_path = convert_sku110k_to_yolo(SKU_DIR)
 # %%
 # === Step 3: Train YOLO on SKU-110K ===
 
-print("\nStarting YOLO training...")
-model = YOLO("yolo11s.pt")
+print("\nStarting YOLO26s training (NMS-free, optimized for dense shelf detection)...")
+model = YOLO("yolo26s.pt")
 
 results = model.train(
     data=yolo_yaml_path,     # Our manually created YAML
@@ -1128,7 +1129,7 @@ print("   SHELFMIND AI - ALL TRAINING COMPLETE!")
 print("="*60)
 
 model_files = [
-    ("yolo_shelf_best.pt", "Product Detection (YOLO11s trained on SKU-110K)"),
+    ("yolo_shelf_best.pt", "Product Detection (YOLO26s trained on SKU-110K — NMS-free)"),
     ("sku_faiss_index.bin", "SKU Matching (DINOv2 + FAISS)"),
     ("sku_metadata.json", "SKU Crop Metadata"),
     ("lgbm_forecast_model.pkl", "Demand Forecasting (LightGBM on M5)"),
