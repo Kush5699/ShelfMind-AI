@@ -3,6 +3,11 @@ data/
 *.tar.gz
 *.csv
 
+# Slides / PDFs / Zips
+*.pdf
+Slide*.png
+*.zip
+
 # Models - allow everything except training artifacts
 models/shelfmind_models/yolo_sku110k/
 
