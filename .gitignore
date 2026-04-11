@@ -1,15 +1,10 @@
 # Data (too large for GitHub)
 data/
 *.tar.gz
-*.zip
 *.csv
 
-# Models (download from Kaggle or releases)
-models/*.pt
-models/*.bin
-models/*.pkl
-models/*.json
-models/sample_crops/
+# Models - allow everything except training artifacts
+models/shelfmind_models/yolo_sku110k/
 
 # Python
 __pycache__/
