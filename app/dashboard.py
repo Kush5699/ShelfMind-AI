@@ -23,6 +23,15 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# Database module
+from db import (
+    setup_database, add_product, get_products, get_product_count,
+    get_next_product_id, delete_product, clear_all_products, get_catalog_as_dict,
+    save_planogram_db, get_planograms, delete_planogram,
+    log_compliance, log_alert, get_compliance_logs_as_list,
+    get_analytics_summary, get_alerts_history,
+)
+
 # ── Path Setup ────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -37,6 +46,9 @@ FORECAST_MODEL_PATH = MODEL_DIR / "lgbm_forecast_model.pkl"
 # Ensure directories exist
 for d in [CATALOG_DIR, REF_IMG_DIR, PLANOGRAM_DIR, COMPLIANCE_DIR]:
     d.mkdir(parents=True, exist_ok=True)
+
+# Initialize SQLite database
+setup_database()
 
 # ── Page Config ───────────────────────────────────────────────────────────
 st.set_page_config(
@@ -263,17 +275,12 @@ def get_embedding(model, image):
 
 # ── Product Catalog Management ────────────────────────────────────────────
 def load_catalog():
-    """Load product catalog from disk."""
-    catalog_path = CATALOG_DIR / "products.json"
-    if catalog_path.exists():
-        with open(catalog_path) as f:
-            return json.load(f)
-    return {"products": [], "next_id": 1}
+    """Load product catalog from SQLite database."""
+    return get_catalog_as_dict()
 
 def save_catalog(catalog):
-    """Save product catalog to disk."""
-    with open(CATALOG_DIR / "products.json", "w") as f:
-        json.dump(catalog, f, indent=2)
+    """Save product catalog — handled by db.add_product() now."""
+    pass  # Individual products are saved via db.add_product()
 
 def build_faiss_index(catalog):
     """Build FAISS index from catalog embeddings."""
@@ -281,7 +288,7 @@ def build_faiss_index(catalog):
     embeddings = []
     valid_products = []
     for p in catalog["products"]:
-        if "embedding" in p:
+        if "embedding" in p and p["embedding"] is not None:
             embeddings.append(p["embedding"])
             valid_products.append(p)
     if not embeddings:
@@ -302,19 +309,14 @@ def search_product(index, products, query_embedding, threshold=0.5):
         return products[int(indices[0][0])], score
     return None, score
 
-# ── Planogram Management ──────────────────────────────────────────────────
+# ── Planogram Management (now via SQLite) ─────────────────────────────────
 def load_planograms():
-    """Load all planograms from disk."""
-    planograms = {}
-    for f in sorted(PLANOGRAM_DIR.glob("*.json")):
-        with open(f) as fp:
-            planograms[f.stem] = json.load(fp)
-    return planograms
+    """Load all planograms from SQLite database."""
+    return get_planograms()
 
 def save_planogram(name, data):
-    """Save planogram to disk."""
-    with open(PLANOGRAM_DIR / f"{name}.json", "w") as f:
-        json.dump(data, f, indent=2)
+    """Save planogram to SQLite database."""
+    save_planogram_db(name, data)
 
 # ── Alert Engine ──────────────────────────────────────────────────────────
 def send_mobile_alert(title, message, priority="high"):
@@ -618,8 +620,11 @@ with tab1:
 
             if submitted and captured_img and prod_name:
                 with st.spinner("Registering product..."):
+                    # Generate SKU ID
+                    next_id = get_next_product_id()
+                    sku_id = f"SKU_{next_id:04d}"
+
                     # Save image
-                    sku_id = f"SKU_{catalog['next_id']:04d}"
                     img_filename = f"{sku_id}_{prod_name.replace(' ', '_').lower()}.jpg"
                     img_path = REF_IMG_DIR / img_filename
                     captured_img.save(str(img_path), "JPEG", quality=90)
@@ -630,34 +635,29 @@ with tab1:
                     if dinov2:
                         embedding = get_embedding(dinov2, captured_img).tolist()
 
-                    # Add to catalog
-                    product = {
-                        "sku": sku_id,
-                        "name": prod_name,
-                        "price": prod_price,
-                        "category": prod_category,
-                        "image": img_filename,
-                        "registered_at": datetime.now().isoformat(),
-                    }
-                    if embedding:
-                        product["embedding"] = embedding
+                    # Save to SQLite database
+                    add_product(
+                        sku=sku_id,
+                        name=prod_name,
+                        category=prod_category,
+                        price=prod_price,
+                        image_path=img_filename,
+                        embedding=embedding,
+                    )
 
-                    catalog["products"].append(product)
-                    catalog["next_id"] += 1
-                    save_catalog(catalog)
-
-                    st.success(f"✅ **{prod_name}** registered as **{sku_id}**!")
+                    st.success(f"✅ **{prod_name}** registered as **{sku_id}** in database!")
                     st.rerun()
 
             elif submitted and not prod_name:
                 st.warning("Please enter a product name.")
-            elif submitted and not camera_photo:
+            elif submitted and not captured_img:
                 st.warning("Please capture a product photo first.")
 
     # ── Product Gallery ────────────────────────────────────────────────
     st.markdown("---")
+    catalog = load_catalog()
     n_products = len(catalog["products"])
-    has_embeddings = sum(1 for p in catalog["products"] if "embedding" in p)
+    has_embeddings = sum(1 for p in catalog["products"] if p.get("embedding"))
 
     g1, g2, g3 = st.columns(3)
     with g1:
@@ -682,15 +682,14 @@ with tab1:
         gallery_cols = st.columns(min(6, max(1, n_products)))
         for i, product in enumerate(catalog["products"]):
             with gallery_cols[i % len(gallery_cols)]:
-                img_path = REF_IMG_DIR / product.get("image", "")
+                img_path = REF_IMG_DIR / product.get("image_path", product.get("image", ""))
                 if img_path.exists():
                     st.image(str(img_path), caption=product["name"], width='stretch')
                 st.caption(f"**{product['sku']}** | ₹{product.get('price', 0):.0f}")
 
         # Delete button
         if st.button("🗑️ Clear All Products", type="secondary"):
-            catalog = {"products": [], "next_id": 1}
-            save_catalog(catalog)
+            clear_all_products()
             # Clean reference images
             for f in REF_IMG_DIR.glob("*.jpg"):
                 f.unlink()
@@ -705,7 +704,7 @@ with tab2:
     st.caption("Arrange products on your shelf, scan it, and the system auto-creates the planogram. No manual JSON needed!")
 
     catalog = load_catalog()
-    n_products = len([p for p in catalog["products"] if "embedding" in p])
+    n_products = len([p for p in catalog["products"] if p.get("embedding")])
 
     if n_products < 2:
         st.warning(f"⚠️ Register at least 2 products in the **Product Scanner** tab first. Currently: {n_products} products.")
@@ -854,7 +853,7 @@ with tab2:
                     st.image(str(ref_img), caption=f"Reference: {name}", width='stretch')
 
                 if st.button(f"🗑️ Delete {name}", key=f"del_{name}"):
-                    (PLANOGRAM_DIR / f"{name}.json").unlink(missing_ok=True)
+                    delete_planogram(name)
                     ref_img.unlink(missing_ok=True)
                     st.rerun()
 
@@ -868,7 +867,7 @@ with tab3:
 
     planograms = load_planograms()
     catalog = load_catalog()
-    n_products = len([p for p in catalog["products"] if "embedding" in p])
+    n_products = len([p for p in catalog["products"] if p.get("embedding")])
 
     if not planograms:
         st.warning("⚠️ Create a planogram first in the **Planogram Creator** tab.")
@@ -1227,29 +1226,32 @@ with tab3:
                                             {len(critical_alerts)} violation(s) detected → Push notification sent to <strong>ntfy.sh/{ntfy_topic}</strong>
                                         </div>""", unsafe_allow_html=True)
 
-                            # Save compliance log
-                            log_entry = {
-                                "timestamp": current_time.isoformat(),
-                                "planogram": selected_planogram,
-                                "overall_compliance": round(overall_compliance, 1),
-                                "total_detected": len(detections),
-                                "total_expected": total_expected,
-                                "revenue_at_risk": round(total_revenue_risk, 2),
-                                "alerts": len(all_alerts),
-                                "shelf_data": {str(k): {"compliance": v["compliance"], "detected": v["detected"], "expected": v["expected"]}
-                                              for k, v in shelf_compliance.items()},
-                            }
-                            log_path = COMPLIANCE_DIR / "compliance_log.json"
-                            logs = []
-                            if log_path.exists():
-                                with open(log_path) as f:
-                                    try:
-                                        logs = json.load(f)
-                                    except:
-                                        logs = []
-                            logs.append(log_entry)
-                            with open(log_path, "w") as f:
-                                json.dump(logs[-200:], f, indent=2)
+                            # Save compliance log to SQLite database
+                            comp_log_id = log_compliance(
+                                planogram_name=selected_planogram,
+                                compliance=round(overall_compliance, 1),
+                                detected=len(detections),
+                                expected=total_expected,
+                                revenue_risk=round(total_revenue_risk, 2),
+                                alert_count=len(all_alerts),
+                                scan_number=scan_count,
+                            )
+
+                            # Log individual alerts to database
+                            for a in all_alerts:
+                                log_alert(
+                                    compliance_log_id=comp_log_id,
+                                    alert_type=a.get("type", "UNKNOWN"),
+                                    shelf_id=a.get("shelf", 0),
+                                    product_name=a.get("product", ""),
+                                    product_sku=a.get("sku", ""),
+                                    priority=a.get("priority", "MEDIUM"),
+                                    expected_count=a.get("expected"),
+                                    found_count=a.get("found"),
+                                    revenue=a.get("revenue", 0),
+                                    position_info=a.get("expected_at", ""),
+                                    notified=bool(critical_alerts),
+                                )
 
                             # Wait before next scan
                             time.sleep(scan_interval)
@@ -1288,12 +1290,8 @@ with tab4:
     st.markdown('<div class="section-header">📊 Analytics Dashboard — Shelf Intelligence at a Glance</div>', unsafe_allow_html=True)
     st.caption("Real-time overview of shelf health, compliance trends, and revenue impact across your store.")
 
-    # Load compliance logs
-    log_path = COMPLIANCE_DIR / "compliance_log.json"
-    logs = []
-    if log_path.exists():
-        with open(log_path) as f:
-            logs = json.load(f)
+    # Load compliance logs from database
+    logs = get_compliance_logs_as_list()
 
     catalog = load_catalog()
     planograms = load_planograms()
