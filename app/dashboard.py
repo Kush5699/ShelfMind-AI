@@ -679,18 +679,66 @@ with tab1:
 
     if catalog["products"]:
         st.markdown("##### 🗄️ Registered Products")
-        gallery_cols = st.columns(min(6, max(1, n_products)))
-        for i, product in enumerate(catalog["products"]):
-            with gallery_cols[i % len(gallery_cols)]:
-                img_path = REF_IMG_DIR / product.get("image_path", product.get("image", ""))
-                if img_path.exists():
-                    st.image(str(img_path), caption=product["name"], width='stretch')
-                st.caption(f"**{product['sku']}** | ₹{product.get('price', 0):.0f}")
 
-        # Delete button
+        # Table header
+        header_cols = st.columns([1, 2, 2, 2, 1, 1])
+        header_cols[0].markdown("**Image**")
+        header_cols[1].markdown("**Product Name**")
+        header_cols[2].markdown("**SKU**")
+        header_cols[3].markdown("**Category**")
+        header_cols[4].markdown("**Price**")
+        header_cols[5].markdown("**Action**")
+        st.markdown("---")
+
+        # Product rows
+        for product in catalog["products"]:
+            row_cols = st.columns([1, 2, 2, 2, 1, 1])
+
+            # Image
+            with row_cols[0]:
+                img_file = product.get("image_path", product.get("image", ""))
+                if img_file:
+                    img_path = REF_IMG_DIR / img_file
+                    if img_path.is_file():
+                        st.image(str(img_path), width=80)
+                    else:
+                        st.markdown("🖼️ *No image*")
+                else:
+                    st.markdown("🖼️ *No image*")
+
+            # Name
+            with row_cols[1]:
+                st.markdown(f"**{product['name']}**")
+                has_emb = "✅ Embedded" if product.get("embedding") else "❌ No embedding"
+                st.caption(has_emb)
+
+            # SKU
+            with row_cols[2]:
+                st.code(product["sku"], language=None)
+
+            # Category
+            with row_cols[3]:
+                st.markdown(product.get("category", "Other"))
+
+            # Price
+            with row_cols[4]:
+                st.markdown(f"₹{product.get('price', 0):.0f}")
+
+            # Delete
+            with row_cols[5]:
+                if st.button("🗑️", key=f"del_{product['sku']}", help=f"Delete {product['name']}"):
+                    delete_product(product["sku"])
+                    # Remove image file
+                    if img_file:
+                        img_p = REF_IMG_DIR / img_file
+                        if img_p.is_file():
+                            img_p.unlink()
+                    st.rerun()
+
+        st.markdown("---")
+        # Bulk delete
         if st.button("🗑️ Clear All Products", type="secondary"):
             clear_all_products()
-            # Clean reference images
             for f in REF_IMG_DIR.glob("*.jpg"):
                 f.unlink()
             st.rerun()

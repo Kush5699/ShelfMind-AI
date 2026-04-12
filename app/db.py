@@ -426,7 +426,7 @@ def migrate_from_json():
                         name=p.get("name", "Unknown"),
                         category=p.get("category", "Other"),
                         price=p.get("price", 0),
-                        image_path=p.get("image_path", ""),
+                        image_path=p.get("image_path", p.get("image", "")),
                         embedding=p.get("embedding"),
                     )
             # Rename old file
