@@ -9,7 +9,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10+-3776ab?logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/PyTorch-2.0+-ee4c2c?logo=pytorch&logoColor=white" />
-  <img src="https://img.shields.io/badge/YOLO-11s_Finetuned-00d4aa" />
+  <img src="https://img.shields.io/badge/YOLO-26s_Finetuned-00d4aa" />
   <img src="https://img.shields.io/badge/DINOv2-ViT--S-4ecdc4" />
   <img src="https://img.shields.io/badge/FAISS-Vector_Search-ff9800" />
   <img src="https://img.shields.io/badge/LightGBM-Forecasting-ffe66d" />
@@ -114,7 +114,7 @@ Retail out-of-stock events cost the global industry an estimated **$1 trillion a
 
 | Layer | Component | Technology | Why This Choice |
 |-------|-----------|-----------|-----------------| 
-| **Detection** | Product Localization | YOLO11s (Fine-tuned on SKU-110K) | High mAP@50 (86.76%), optimized for dense retail shelves |
+| **Detection** | Product Localization | YOLO26s (Fine-tuned on SKU-110K) | NMS-free, mAP@50: 89.55%, optimized for dense retail shelves |
 | **Embedding** | Visual Feature Extraction | DINOv2 ViT-S/14 (Meta) | Self-supervised ViT, 768-dim embeddings, no fine-tuning needed |
 | **Retrieval** | SKU Matching | FAISS (Facebook) | Sub-millisecond cosine similarity, scales to 1M+ products |
 | **Forecasting** | Demand Prediction | LightGBM | Handles 50M+ rows, GPU-trainable, native categoricals |
@@ -134,7 +134,7 @@ Retail out-of-stock events cost the global industry an estimated **$1 trillion a
 
 ### Modular Extensibility
 
-- **Swap detector:** Replace YOLO11 with any Ultralytics model (YOLO26, YOLOv8, etc.) via 1-line config change
+- **Swap detector:** Replace YOLO26 with any Ultralytics model (YOLO11, YOLOv8, etc.) via 1-line config change
 - **Swap embeddings:** Replace DINOv2 with CLIP/SigLIP by changing the embedding loader
 - **Add data sources:** Weather API, price feeds, or IoT sensor data plug into the forecast pipeline
 - **Scale FAISS:** Switch from `IndexFlatIP` to `IndexIVF` for 1M+ product databases
@@ -175,15 +175,16 @@ Continuous monitoring with throttled push notifications (max 1 per 30 seconds) t
 
 ## 📊 Performance Metrics
 
-### Product Detection (YOLO11s Fine-tuned on SKU-110K)
+### Product Detection (YOLO26s Fine-tuned on SKU-110K)
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| **Precision** | **90.65%** | Low false positive rate |
-| **Recall** | **82.71%** | Strong detection coverage |
-| **mAP@50** | **86.76%** | Primary detection metric |
-| **mAP@50-95** | **54.05%** | Strict IoU evaluation |
-| **Inference** | **~26ms/image** | Real-time capable on CPU |
+| **Precision** | **90.70%** | Low false positive rate |
+| **Recall** | **84.81%** | Strong detection coverage |
+| **mAP@50** | **89.55%** | Primary detection metric |
+| **mAP@50-95** | **55.89%** | Strict IoU evaluation |
+| **Inference** | **~8.2ms/image** | NMS-free, real-time on GPU |
+| **Architecture** | YOLO26s | C3k2 + SPPF + C2PSA, 9.9M params |
 | Training | 30 epochs on T4 | 8,219 train images, 1.2M bboxes |
 
 ### SKU Matching (DINOv2 + FAISS)
@@ -212,27 +213,28 @@ Continuous monitoring with throttled push notifications (max 1 per 30 seconds) t
 ShelfMind-AI/
 │
 ├── app/
-│   └── dashboard.py                # Main Streamlit app (6 tabs, ~1600 lines)
+│   ├── dashboard.py                # Main Streamlit app (6 tabs, ~1700 lines)
+│   └── db.py                       # SQLite database layer (CRUD + migration)
 │
 ├── kaggle_training/
 │   └── shelfmind_train.py          # Complete Kaggle training pipeline
-│                                    # YOLO + DINOv2 + LightGBM
+│                                    # YOLO26s + DINOv2 + LightGBM
 │
 ├── scripts/
 │   ├── generate_weather_data.py    # Open-Meteo API weather fetcher
 │   └── generate_planogram_data.py  # Synthetic planogram generator
 │
 ├── models/shelfmind_models/
-│   ├── yolo_shelf_best.pt          # YOLO11s fine-tuned detector (~18 MB)
+│   ├── yolo_shelf_best.pt          # YOLO26s fine-tuned detector (~20 MB)
 │   ├── lgbm_forecast_model.pkl     # LightGBM demand model (~0.6 MB)
 │   └── visualizations/             # Training charts & metrics
 │
 ├── data/
-│   ├── store_catalog/              # [Auto-generated] Product database
-│   │   ├── products.json           #   Product metadata + embeddings
+│   ├── shelfmind.db                # SQLite database (products, planograms, logs)
+│   ├── store_catalog/
 │   │   └── reference_images/       #   Product photos from scanner
-│   ├── store_planograms/           # [Auto-generated] Planogram JSONs
-│   └── compliance_logs/            # [Auto-generated] Monitoring history
+│   ├── store_planograms/           # Reference shelf images
+│   └── compliance_logs/            # [Legacy] migrated to SQLite
 │
 ├── README.md
 ├── requirements.txt
@@ -346,8 +348,8 @@ streamlit run app/dashboard.py
 | | User Centricity | 3 personas: Associate, Manager, VP |
 | | Requirement Coverage | All 5 requirements with live demo |
 | **Technical Design** | Modular Extensibility | Each model is swappable (1-line change) |
-| | Tool Appropriateness | YOLO11 (accuracy) + DINOv2 (embeddings) + FAISS (scale) |
-| **Execution** | Metric Success | mAP@50: 86.76%, MAE: 6.20 units |
+| | Tool Appropriateness | YOLO26 (NMS-free) + DINOv2 (embeddings) + FAISS (scale) + SQLite (storage) |
+| **Execution** | Metric Success | mAP@50: 89.55%, MAE: 6.20 units |
 | | System Efficiency | Detection: ~26ms, SKU search: <1ms |
 | **Innovation** | Advanced Tech | DINOv2 self-supervised + position-based compliance |
 | | Explainability | SHAP values for every forecast |
@@ -360,7 +362,7 @@ streamlit run app/dashboard.py
 ## 🛠️ Tech Stack
 
 ```
-Detection:       YOLO11s (Fine-tuned on SKU-110K, 86.76% mAP@50)
+Detection:       YOLO26s (Fine-tuned on SKU-110K, 89.55% mAP@50, NMS-free)
 SKU Recognition: DINOv2 ViT-S/14 (Self-supervised)
 Vector Search:   FAISS (Facebook AI Similarity Search)
 Forecasting:     LightGBM + SHAP Explainability

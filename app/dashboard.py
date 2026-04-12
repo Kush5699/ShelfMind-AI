@@ -238,8 +238,8 @@ def load_yolo():
             model = YOLO(str(model_path))
             model.to("cpu")
             return model
-        # Fallback to fine-tuned YOLO11s
-        model = YOLO("yolo11s.pt")
+        # Fallback to pretrained YOLO26s
+        model = YOLO("yolo26s.pt")
         model.to("cpu")
         return model
     except Exception as e:
