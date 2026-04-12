@@ -220,13 +220,14 @@ def load_yolo():
     """Load YOLO model for product detection."""
     try:
         from ultralytics import YOLO
-        model_path = MODEL_DIR / "yolo11s_shelf.pt"
+        # Fine-tuned model (trained on SKU-110K)
+        model_path = MODEL_DIR / "yolo_shelf_best.pt"
         if model_path.exists():
             model = YOLO(str(model_path))
             model.to("cpu")
             return model
-        # Fallback to pretrained YOLO26
-        model = YOLO("yolo26s.pt")
+        # Fallback to fine-tuned YOLO11s
+        model = YOLO("yolo11s.pt")
         model.to("cpu")
         return model
     except Exception as e:
@@ -320,18 +321,23 @@ def send_mobile_alert(title, message, priority="high"):
     """Send push notification via ntfy.sh."""
     topic = st.session_state.get("ntfy_topic", "shelfmind-alerts")
     try:
+        # Remove emojis from title (HTTP headers must be latin-1 safe)
+        clean_title = title.encode("ascii", "ignore").decode("ascii").strip()
+        if not clean_title:
+            clean_title = "ShelfMind Alert"
+
         requests.post(
             f"https://ntfy.sh/{topic}",
             data=message.encode("utf-8"),
             headers={
-                "Title": title,
+                "Title": clean_title,
                 "Priority": priority,
                 "Tags": "warning" if priority == "high" else "loudspeaker",
             },
             timeout=5,
         )
         return True
-    except Exception:
+    except Exception as e:
         return False
 
 def format_compliance_alert(shelf_name, issues, compliance_pct):
@@ -375,10 +381,17 @@ def detect_shelf_levels(detections, img_height):
     y_centers = sorted([(d["bbox"][1] + d["bbox"][3]) / 2 for d in detections])
     gaps = [(y_centers[i] - y_centers[i-1], i) for i in range(1, len(y_centers))]
 
-    # Top N biggest gaps = shelf boundaries
+    # Minimum gap must be at least 15% of image height to count as a new shelf
+    # This prevents splitting products on the same flat surface
+    min_shelf_gap = img_height * 0.15
+
+    # Also use statistical threshold: gap must be 3x the average small gap
     small_gaps = sorted([g for g, _ in gaps])[:max(len(gaps)//2, 1)]
     avg_small = sum(small_gaps) / len(small_gaps) if small_gaps else 10
-    sig_threshold = avg_small * 3
+    stat_threshold = avg_small * 3
+
+    # Use the LARGER of the two thresholds
+    sig_threshold = max(min_shelf_gap, stat_threshold)
 
     gaps_sorted = sorted(gaps, key=lambda x: x[0], reverse=True)
     top_gaps = [(g, idx) for g, idx in gaps_sorted if g > sig_threshold][:6]
@@ -455,6 +468,78 @@ def draw_annotated_image(image, detections, product_labels=None):
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# ── PHONE CAMERA CONFIG ──────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════
+
+def capture_from_phone(url, rotation=0):
+    """Grab a single frame from IP Webcam stream with orientation fix."""
+    import cv2
+    from PIL import ImageOps
+    try:
+        # Use /shot.jpg for a single frame (more reliable than /video)
+        shot_url = url.replace("/video", "/shot.jpg").replace("/videofeed", "/shot.jpg")
+        if "/shot.jpg" not in shot_url:
+            shot_url = url.rstrip("/") + "/shot.jpg"
+
+        import urllib.request
+        with urllib.request.urlopen(shot_url, timeout=5) as resp:
+            arr = np.frombuffer(resp.read(), np.uint8)
+            img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            if img is not None:
+                pil_img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+                # Auto-fix EXIF orientation
+                try:
+                    pil_img = ImageOps.exif_transpose(pil_img)
+                except Exception:
+                    pass
+                # Apply manual rotation if needed
+                if rotation == 90:
+                    pil_img = pil_img.rotate(-90, expand=True)
+                elif rotation == 180:
+                    pil_img = pil_img.rotate(180, expand=True)
+                elif rotation == 270:
+                    pil_img = pil_img.rotate(90, expand=True)
+                return pil_img
+    except Exception as e:
+        st.error(f"❌ Cannot connect to phone camera: {e}")
+    return None
+
+# Phone camera global settings (collapsible)
+with st.expander("📱 Phone Camera Setup", expanded=False):
+    phone_cols = st.columns([2, 1, 1])
+    with phone_cols[0]:
+        phone_cam_url = st.text_input(
+            "IP Webcam URL",
+            value="http://192.168.1.5:8080",
+            key="global_phone_url",
+            help="Install 'IP Webcam' app on Android → Start Server → paste URL here"
+        )
+    with phone_cols[1]:
+        phone_rotation = st.selectbox(
+            "Rotation Fix",
+            [0, 90, 180, 270],
+            index=1,
+            format_func=lambda x: f"🔄 {x}°" if x > 0 else "None",
+            key="phone_rotation",
+            help="If image appears sideways, change this"
+        )
+    with phone_cols[2]:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔗 Test Connection"):
+            test_img = capture_from_phone(phone_cam_url, phone_rotation)
+            if test_img:
+                st.success("✅ Connected!")
+                st.image(test_img, caption="Phone camera preview", width='stretch')
+            else:
+                st.error("❌ Cannot reach phone camera")
+
+    st.markdown("""
+    **Quick Setup:** Install **IP Webcam** (Android) → Start Server → Enter URL above  
+    Both phone & laptop must be on the **same WiFi network**
+    """)
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # ── TABS ──────────────────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -466,6 +551,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📈 Demand Forecast",
     "📓 Training Results",
 ])
+
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -480,12 +566,39 @@ with tab1:
     col_cam, col_form = st.columns([1, 1])
 
     with col_cam:
-        st.markdown("##### Camera Capture")
-        camera_photo = st.camera_input("Point camera at the product", key="scanner_cam")
+        st.markdown("##### Capture Product Image")
+        img_source = st.radio(
+            "Image Source",
+            ["📱 Phone Camera", "💻 Laptop Camera", "📁 Upload"],
+            horizontal=True, key="scanner_source"
+        )
 
-        if camera_photo:
-            captured_img = Image.open(camera_photo).convert("RGB")
-            st.image(captured_img, caption="Captured product", use_container_width=True)
+        captured_img = None
+        if img_source == "📱 Phone Camera":
+            st.info("Point your phone at the product, then click capture 👇")
+            if st.button("📸 Capture from Phone", type="primary", key="phone_cap_scanner"):
+                captured_img = capture_from_phone(phone_cam_url, phone_rotation)
+                if captured_img:
+                    st.session_state["scanner_phone_img"] = captured_img
+            # Persist across reruns
+            if "scanner_phone_img" in st.session_state:
+                captured_img = st.session_state["scanner_phone_img"]
+
+        elif img_source == "💻 Laptop Camera":
+            camera_photo = st.camera_input("Point camera at the product", key="scanner_cam")
+            if camera_photo:
+                captured_img = Image.open(camera_photo).convert("RGB")
+        else:
+            uploaded_photo = st.file_uploader(
+                "Upload product photo",
+                type=["jpg", "jpeg", "png"],
+                key="scanner_upload"
+            )
+            if uploaded_photo:
+                captured_img = Image.open(uploaded_photo).convert("RGB")
+
+        if captured_img:
+            st.image(captured_img, caption="Captured product", width='stretch')
 
     with col_form:
         st.markdown("##### Product Details")
@@ -501,9 +614,9 @@ with tab1:
                     "Fruits & Vegetables", "Other"
                 ])
 
-            submitted = st.form_submit_button("✅ Register Product", type="primary", use_container_width=True)
+            submitted = st.form_submit_button("✅ Register Product", type="primary", width='stretch')
 
-            if submitted and camera_photo and prod_name:
+            if submitted and captured_img and prod_name:
                 with st.spinner("Registering product..."):
                     # Save image
                     sku_id = f"SKU_{catalog['next_id']:04d}"
@@ -571,7 +684,7 @@ with tab1:
             with gallery_cols[i % len(gallery_cols)]:
                 img_path = REF_IMG_DIR / product.get("image", "")
                 if img_path.exists():
-                    st.image(str(img_path), caption=product["name"], use_container_width=True)
+                    st.image(str(img_path), caption=product["name"], width='stretch')
                 st.caption(f"**{product['sku']}** | ₹{product.get('price', 0):.0f}")
 
         # Delete button
@@ -603,11 +716,26 @@ with tab2:
         plano_cols = st.columns([1, 2])
         with plano_cols[0]:
             shelf_name = st.text_input("Shelf Name", value="Shelf_1", placeholder="e.g., Aisle_1_Shelf_A")
-            shelf_image_source = st.radio("Image Source", ["📸 Camera", "📁 Upload"], horizontal=True)
+            shelf_image_source = st.radio(
+                "Image Source",
+                ["📱 Phone Camera", "💻 Laptop Camera", "📁 Upload"],
+                horizontal=True, key="plano_source"
+            )
 
         with plano_cols[1]:
             shelf_image = None
-            if shelf_image_source == "📸 Camera":
+            if shelf_image_source == "📱 Phone Camera":
+                st.info("Point your phone at the arranged shelf, then click capture 👇")
+                if st.button("📸 Capture Shelf from Phone", type="primary", key="phone_cap_plano"):
+                    shelf_image = capture_from_phone(phone_cam_url, phone_rotation)
+                    if shelf_image:
+                        st.session_state["plano_phone_img"] = shelf_image
+                # Persist across reruns
+                if "plano_phone_img" in st.session_state:
+                    shelf_image = st.session_state["plano_phone_img"]
+                    st.image(shelf_image, caption="Captured shelf", width='stretch')
+
+            elif shelf_image_source == "💻 Laptop Camera":
                 cam_img = st.camera_input("Capture your arranged shelf", key="plano_cam")
                 if cam_img:
                     shelf_image = Image.open(cam_img).convert("RGB")
@@ -653,7 +781,7 @@ with tab2:
 
                     # Show annotated image
                     annotated = draw_annotated_image(shelf_image, detections, product_labels)
-                    st.image(annotated, caption=f"Detected {len(detections)} products on {n_shelves} shelves", use_container_width=True)
+                    st.image(annotated, caption=f"Detected {len(detections)} products on {n_shelves} shelves", width='stretch')
 
                     # Show detected layout
                     st.markdown("##### 📊 Auto-Detected Layout")
@@ -696,14 +824,14 @@ with tab2:
                     st.markdown("")
                     c1, c2 = st.columns(2)
                     with c1:
-                        if st.button("✅ Confirm as Planogram", type="primary", use_container_width=True):
+                        if st.button("✅ Confirm as Planogram", type="primary", width='stretch'):
                             save_planogram(shelf_name, planogram_data)
                             # Also save the reference image
                             shelf_image.save(str(PLANOGRAM_DIR / f"{shelf_name}_reference.jpg"), "JPEG", quality=90)
                             st.success(f"✅ Planogram **{shelf_name}** saved with {n_shelves} shelves and {len(detections)} products!")
                             st.balloons()
                     with c2:
-                        if st.button("🔄 Re-scan", use_container_width=True):
+                        if st.button("🔄 Re-scan", width='stretch'):
                             st.rerun()
 
     # Show existing planograms
@@ -723,7 +851,7 @@ with tab2:
                 # Reference image
                 ref_img = PLANOGRAM_DIR / f"{name}_reference.jpg"
                 if ref_img.exists():
-                    st.image(str(ref_img), caption=f"Reference: {name}", use_container_width=True)
+                    st.image(str(ref_img), caption=f"Reference: {name}", width='stretch')
 
                 if st.button(f"🗑️ Delete {name}", key=f"del_{name}"):
                     (PLANOGRAM_DIR / f"{name}.json").unlink(missing_ok=True)
@@ -759,14 +887,37 @@ with tab3:
 
         scan_interval = st.slider("Scan Interval (seconds)", 3, 30, 5, 1, help="How often to capture and analyze a new frame")
 
+        # Camera source selection
+        cam_source = st.radio(
+            "Camera Source",
+            ["💻 Laptop Webcam", "📱 Phone Camera (IP Webcam)"],
+            horizontal=True,
+            help="Use IP Webcam app on Android for better quality"
+        )
+        ip_cam_url = ""
+        if cam_source == "📱 Phone Camera (IP Webcam)":
+            ip_cam_url = st.text_input(
+                "IP Webcam URL",
+                value="http://192.168.1.5:8080/video",
+                help="Install 'IP Webcam' app on Android → Start Server → Use the URL shown"
+            )
+            st.markdown("""<div class="alert-info">
+                <strong>📱 Setup IP Webcam:</strong><br>
+                1. Install <strong>IP Webcam</strong> app on Android from Play Store<br>
+                2. Open app → scroll down → tap <strong>Start Server</strong><br>
+                3. Note the URL shown (e.g., http://192.168.1.5:8080)<br>
+                4. Add <strong>/video</strong> at the end and paste above<br>
+                5. Make sure phone & laptop are on <strong>same WiFi</strong>
+            </div>""", unsafe_allow_html=True)
+
         st.markdown("---")
 
         # Real-time monitoring controls
         btn_cols = st.columns([1, 1, 2])
         with btn_cols[0]:
-            start_monitoring = st.button("▶️ Start Live Monitoring", type="primary", use_container_width=True)
+            start_monitoring = st.button("▶️ Start Live Monitoring", type="primary", width='stretch')
         with btn_cols[1]:
-            stop_monitoring = st.button("⏹️ Stop Monitoring", use_container_width=True)
+            stop_monitoring = st.button("⏹️ Stop Monitoring", width='stretch')
 
         if stop_monitoring:
             st.session_state["monitoring_active"] = False
@@ -800,37 +951,69 @@ with tab3:
                 st.error("❌ Models not loaded. Please check YOLO and DINOv2.")
                 st.session_state["monitoring_active"] = False
             else:
+                # Determine camera source
+                use_phone = cam_source == "📱 Phone Camera (IP Webcam)" and ip_cam_url
+                cam_label = f"Phone Camera ({ip_cam_url})" if use_phone else "Laptop Webcam"
+
                 status_indicator.markdown(
-                    '<div class="alert-ok"><strong>🟢 LIVE MONITORING ACTIVE</strong> — Camera is watching the shelf. Any violation will trigger an alert.</div>',
+                    f'<div class="alert-ok"><strong>🟢 LIVE MONITORING ACTIVE</strong> — {cam_label} is watching the shelf. Any violation will trigger an alert.</div>',
                     unsafe_allow_html=True
                 )
 
-                cap = cv2.VideoCapture(0)
-                if not cap.isOpened():
-                    st.error("❌ Cannot access webcam. Please check camera permissions.")
-                    st.session_state["monitoring_active"] = False
-                else:
-                    scan_count = 0
+                # For phone: use HTTP shot grab (more reliable than video stream)
+                # For laptop: use OpenCV VideoCapture
+                cap = None
+                if not use_phone:
+                    cap = cv2.VideoCapture(0)
+                    if not cap.isOpened():
+                        st.error(f"❌ Cannot access laptop webcam.")
+                        st.session_state["monitoring_active"] = False
+
+                scan_count = 0
+                retry_count = 0
+                max_retries = 5
+
+                if st.session_state.get("monitoring_active", False):
                     try:
                         while st.session_state.get("monitoring_active", False):
-                            ret, frame = cap.read()
-                            if not ret:
-                                status_indicator.markdown(
-                                    '<div class="alert-critical"><strong>❌ Camera feed lost.</strong> Reconnecting...</div>',
-                                    unsafe_allow_html=True
-                                )
-                                time.sleep(2)
-                                continue
+                            monitor_image = None
+
+                            if use_phone:
+                                # Grab single frame via HTTP (reliable, no stream drops)
+                                monitor_image = capture_from_phone(ip_cam_url, phone_rotation if 'phone_rotation' in dir() else 90)
+                                if not monitor_image:
+                                    retry_count += 1
+                                    if retry_count > max_retries:
+                                        status_indicator.markdown(
+                                            '<div class="alert-critical"><strong>❌ Phone camera unreachable after 5 retries.</strong> Check IP Webcam app.</div>',
+                                            unsafe_allow_html=True
+                                        )
+                                        break
+                                    status_indicator.markdown(
+                                        f'<div class="alert-warning"><strong>⚠️ Reconnecting to phone... (attempt {retry_count}/{max_retries})</strong></div>',
+                                        unsafe_allow_html=True
+                                    )
+                                    time.sleep(3)
+                                    continue
+                                else:
+                                    retry_count = 0  # Reset on success
+                            else:
+                                ret, frame = cap.read()
+                                if not ret:
+                                    status_indicator.markdown(
+                                        '<div class="alert-critical"><strong>❌ Camera feed lost.</strong> Reconnecting...</div>',
+                                        unsafe_allow_html=True
+                                    )
+                                    time.sleep(2)
+                                    continue
+                                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                                monitor_image = Image.fromarray(frame_rgb)
 
                             scan_count += 1
                             current_time = datetime.now()
 
-                            # Convert OpenCV frame to PIL
-                            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                            monitor_image = Image.fromarray(frame_rgb)
-
                             # Resize for performance
-                            max_dim = 800
+                            max_dim = 640
                             if monitor_image.width > max_dim:
                                 ratio = max_dim / monitor_image.width
                                 monitor_image = monitor_image.resize(
@@ -921,6 +1104,43 @@ with tab3:
                                             "priority": "MEDIUM",
                                         })
 
+                                # ── POSITION/ORDER CHECK ──────────────────────────
+                                # Compare left-to-right order of detected vs expected
+                                expected_order = [p["sku"] for p in expected_products if p["sku"] != "UNKNOWN"]
+                                detected_sorted = sorted(
+                                    [d for d in detected_on_shelf if d.get("product_sku", "UNKNOWN") != "UNKNOWN"],
+                                    key=lambda d: d["bbox"][0]  # Sort by x1 (left to right)
+                                )
+                                detected_order = [d.get("product_sku") for d in detected_sorted]
+
+                                # Check if order matches
+                                if expected_order and detected_order:
+                                    min_len = min(len(expected_order), len(detected_order))
+                                    for pos_idx in range(min_len):
+                                        if expected_order[pos_idx] != detected_order[pos_idx]:
+                                            # Find what's at this position
+                                            expected_name = next(
+                                                (p["name"] for p in expected_products if p["sku"] == expected_order[pos_idx]),
+                                                expected_order[pos_idx]
+                                            )
+                                            detected_name = next(
+                                                (d.get("product_name", "?") for d in detected_sorted if d.get("product_sku") == detected_order[pos_idx]),
+                                                detected_order[pos_idx]
+                                            )
+                                            issues.append(
+                                                f"🔄 **{detected_name}** — MISPLACED (position {pos_idx+1}: expected **{expected_name}**)"
+                                            )
+                                            all_alerts.append({
+                                                "type": "MISPLACED", "shelf": shelf_id,
+                                                "product": detected_name,
+                                                "expected_at": expected_name,
+                                                "position": pos_idx + 1,
+                                                "priority": "HIGH",
+                                            })
+                                            # Reduce compliance for misplacement
+                                            if shelf_matched > 0:
+                                                shelf_matched -= 0.5  # Half penalty for wrong order
+
                                 if not issues:
                                     issues.append("All products in correct position")
 
@@ -968,7 +1188,7 @@ with tab3:
 
                             # Annotated frame
                             annotated = draw_annotated_image(monitor_image, detections)
-                            frame_display.image(annotated, caption=f"🔴 LIVE — Scan #{scan_count} at {current_time.strftime('%H:%M:%S')} | {len(detections)} products detected", use_container_width=True)
+                            frame_display.image(annotated, caption=f"🔴 LIVE — Scan #{scan_count} at {current_time.strftime('%H:%M:%S')} | {len(detections)} products detected", width='stretch')
 
                             # Compliance report
                             with compliance_report.container():
@@ -989,8 +1209,8 @@ with tab3:
                                 alert_msg += f"Compliance: {overall_compliance:.0f}% | Scan #{scan_count}\n"
                                 alert_msg += f"Time: {current_time.strftime('%H:%M:%S')}\n\n"
                                 for a in critical_alerts[:5]:
-                                    emoji = "🔴" if a["type"] == "STOCKOUT" else "⚠️"
-                                    alert_msg += f"{emoji} {a['product']}: {a['type']} on Shelf {a['shelf']}\n"
+                                    type_emoji = {"STOCKOUT": "X", "LOW_STOCK": "!", "MISPLACED": "->", "UNAUTHORIZED": "??"}.get(a["type"], "!")
+                                    alert_msg += f"[{type_emoji}] {a['product']}: {a['type']} on Shelf {a['shelf']}\n"
                                 if total_revenue_risk > 0:
                                     alert_msg += f"\nRevenue at risk: ₹{total_revenue_risk:.0f}/hr"
 
@@ -1037,7 +1257,8 @@ with tab3:
                     except Exception as e:
                         st.error(f"Monitoring error: {e}")
                     finally:
-                        cap.release()
+                        if cap is not None:
+                            cap.release()
                         st.session_state["monitoring_active"] = False
                         status_indicator.markdown(
                             '<div class="alert-warning"><strong>⏹️ Monitoring stopped.</strong> Click ▶️ Start to resume.</div>',
@@ -1132,7 +1353,7 @@ with tab4:
                 yaxis_title="Compliance %",
                 xaxis_title="Time",
             )
-            st.plotly_chart(fig_trend, use_container_width=True)
+            st.plotly_chart(fig_trend, width='stretch')
 
         # Alert distribution
         with chart_cols[1]:
@@ -1145,7 +1366,7 @@ with tab4:
                 plot_bgcolor="rgba(0,0,0,0)",
                 font_color="white", height=350,
             )
-            st.plotly_chart(fig_alerts, use_container_width=True)
+            st.plotly_chart(fig_alerts, width='stretch')
 
         # Shelf-level heatmap
         st.markdown("##### 🗺️ Shelf Health Heatmap")
@@ -1171,13 +1392,13 @@ with tab4:
                 font_color="white", height=300,
                 yaxis_title="Compliance %",
             )
-            st.plotly_chart(fig_heatmap, use_container_width=True)
+            st.plotly_chart(fig_heatmap, width='stretch')
 
         # Recent alerts table
         st.markdown("##### 📋 Recent Compliance Scans")
         display_df = log_df[["timestamp", "planogram", "overall_compliance", "total_detected", "total_expected", "alerts", "revenue_at_risk"]].copy()
         display_df.columns = ["Timestamp", "Planogram", "Compliance %", "Detected", "Expected", "Alerts", "Revenue at Risk (₹)"]
-        st.dataframe(display_df.tail(20).sort_index(ascending=False), use_container_width=True, hide_index=True)
+        st.dataframe(display_df.tail(20).sort_index(ascending=False), width='stretch', hide_index=True)
 
     else:
         st.info("📊 No compliance data yet. Run a compliance check in the **Live Monitor** tab to see analytics here.")
@@ -1195,7 +1416,7 @@ with tab4:
             fig.add_hline(y=80, line_dash="dash", line_color="#ffaa00")
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                              font_color="white", height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
         with demo_cols[1]:
             hours = list(range(8, 22))
@@ -1208,7 +1429,7 @@ with tab4:
                            zmin=0, zmax=100, aspect="auto")
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                              font_color="white", height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -1323,7 +1544,7 @@ with tab5:
             font_color="white", height=400,
             xaxis_title="Date", yaxis_title="Units/Day",
         )
-        st.plotly_chart(fig_forecast, use_container_width=True)
+        st.plotly_chart(fig_forecast, width='stretch')
 
         # SHAP Explainability (Novelty 5)
         st.markdown("##### 🔍 SHAP Feature Importance — Why This Forecast?")
@@ -1352,7 +1573,7 @@ with tab5:
                 font_color="white", height=400,
                 xaxis_title="Impact on Prediction",
             )
-            st.plotly_chart(fig_shap, use_container_width=True)
+            st.plotly_chart(fig_shap, width='stretch')
         except Exception as e:
             st.info(f"SHAP visualization: install `pip install shap` for detailed explainability. ({e})")
 
@@ -1389,7 +1610,7 @@ with tab6:
                 for j, col in enumerate(cols):
                     if i + j < len(viz_files):
                         with col:
-                            st.image(str(viz_files[i+j]), caption=viz_files[i+j].stem.replace("_", " ").title(), use_container_width=True)
+                            st.image(str(viz_files[i+j]), caption=viz_files[i+j].stem.replace("_", " ").title(), width='stretch')
         else:
             st.info("No training visualizations found in `models/training_visualizations/`.")
     else:
