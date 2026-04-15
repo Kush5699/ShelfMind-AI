@@ -105,6 +105,12 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_alerts_type ON alerts(alert_type);
             CREATE INDEX IF NOT EXISTS idx_planogram_positions ON planogram_positions(planogram_id);
         """)
+        # Migration: add barcode column if missing (safe for both old and new DBs)
+        try:
+            conn.execute("ALTER TABLE products ADD COLUMN barcode TEXT")
+        except Exception:
+            pass  # Column already exists
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -125,13 +131,13 @@ def _deserialize_embedding(blob):
     return np.frombuffer(blob, dtype=np.float32).tolist()
 
 
-def add_product(sku, name, category, price, image_path, embedding):
+def add_product(sku, name, category, price, image_path, embedding, barcode=None):
     """Add a product to the database."""
     with get_connection() as conn:
         conn.execute(
-            """INSERT OR REPLACE INTO products (sku, name, category, price, image_path, embedding)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (sku, name, category, price, str(image_path), _serialize_embedding(embedding))
+            """INSERT OR REPLACE INTO products (sku, name, category, price, barcode, image_path, embedding)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (sku, name, category, price, barcode, str(image_path), _serialize_embedding(embedding))
         )
     return sku
 
@@ -148,6 +154,7 @@ def get_products():
             "name": row["name"],
             "category": row["category"],
             "price": row["price"],
+            "barcode": row["barcode"] if "barcode" in row.keys() else None,
             "image_path": row["image_path"],
             "embedding": _deserialize_embedding(row["embedding"]),
             "created_at": row["created_at"],

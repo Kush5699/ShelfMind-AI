@@ -15,6 +15,7 @@ import io
 import time
 import base64
 import hashlib
+import re
 import requests
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -63,7 +64,7 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-    /* Global */
+    /* ─── Global ─── */
     .stApp {
         background: linear-gradient(135deg, #0a0a1a 0%, #0d1b2a 40%, #1b1b3a 100%);
         font-family: 'Inter', sans-serif;
@@ -71,154 +72,288 @@ st.markdown("""
     header[data-testid="stHeader"] { background: transparent; }
     .block-container { padding: 1rem 2rem; max-width: 1400px; }
 
-    /* Tab styling */
+    /* ─── Tab Styling (Pill Navigation) ─── */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 4px;
         background: rgba(255,255,255,0.03);
-        border-radius: 12px;
-        padding: 6px;
+        border-radius: 16px;
+        padding: 6px 8px;
+        border: 1px solid rgba(255,255,255,0.06);
+        backdrop-filter: blur(20px);
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        padding: 10px 20px;
+        border-radius: 12px;
+        padding: 12px 24px;
         color: #8892b0;
-        font-weight: 500;
+        font-weight: 600;
         font-size: 14px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid transparent;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #ccd6f6;
+        background: rgba(255,255,255,0.04);
     }
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%);
+        background: linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%) !important;
         color: #0a0a1a !important;
         font-weight: 700;
+        box-shadow: 0 4px 20px rgba(0,212,170,0.3);
+        border: 1px solid rgba(0,212,170,0.3);
     }
 
-    /* Metric cards */
+    /* ─── Glassmorphism Metric Cards ─── */
     .metric-card {
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 16px;
-        padding: 24px;
+        border-radius: 20px;
+        padding: 24px 16px;
         text-align: center;
-        backdrop-filter: blur(10px);
-        transition: all 0.3s ease;
+        backdrop-filter: blur(16px);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #00d4aa, #00b4d8, #7b68ee);
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
     .metric-card:hover {
-        border-color: rgba(0,212,170,0.3);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 32px rgba(0,212,170,0.1);
+        border-color: rgba(0,212,170,0.25);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0,212,170,0.12);
     }
+    .metric-card:hover::before { opacity: 1; }
     .metric-value {
-        font-size: 2.2rem;
+        font-size: 2.4rem;
         font-weight: 800;
         background: linear-gradient(135deg, #00d4aa, #00b4d8);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         line-height: 1.2;
+        letter-spacing: -0.5px;
     }
     .metric-label {
-        font-size: 0.85rem;
-        color: #8892b0;
+        font-size: 0.75rem;
+        color: #6b7b9e;
         margin-top: 8px;
-        font-weight: 500;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 1.5px;
     }
 
-    /* Product card */
+    /* ─── Product Cards ─── */
     .product-card {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
-        padding: 12px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 16px;
         text-align: center;
-        margin: 4px;
+        transition: all 0.3s ease;
     }
-    .product-card img { border-radius: 8px; }
+    .product-card:hover {
+        border-color: rgba(0,180,216,0.3);
+        box-shadow: 0 8px 24px rgba(0,180,216,0.08);
+        transform: translateY(-2px);
+    }
+    .product-card img { border-radius: 12px; }
 
-    /* Alert styles */
+    /* ─── Alert Cards ─── */
     .alert-critical {
-        background: linear-gradient(135deg, rgba(255,67,67,0.15), rgba(255,67,67,0.05));
+        background: linear-gradient(135deg, rgba(255,67,67,0.12), rgba(255,67,67,0.03));
         border-left: 4px solid #ff4343;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 16px 20px;
         margin: 8px 0;
         color: #ff8a8a;
         font-size: 14px;
+        backdrop-filter: blur(10px);
+        animation: slideIn 0.3s ease-out;
     }
     .alert-warning {
-        background: linear-gradient(135deg, rgba(255,170,0,0.15), rgba(255,170,0,0.05));
+        background: linear-gradient(135deg, rgba(255,170,0,0.12), rgba(255,170,0,0.03));
         border-left: 4px solid #ffaa00;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 16px 20px;
         margin: 8px 0;
-        color: #ffcc66;
+        color: #ffd066;
         font-size: 14px;
+        backdrop-filter: blur(10px);
     }
     .alert-ok {
-        background: linear-gradient(135deg, rgba(0,212,170,0.15), rgba(0,212,170,0.05));
+        background: linear-gradient(135deg, rgba(0,212,170,0.12), rgba(0,212,170,0.03));
         border-left: 4px solid #00d4aa;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 16px 20px;
         margin: 8px 0;
         color: #66ffd9;
         font-size: 14px;
+        backdrop-filter: blur(10px);
     }
     .alert-info {
-        background: linear-gradient(135deg, rgba(0,180,216,0.15), rgba(0,180,216,0.05));
+        background: linear-gradient(135deg, rgba(0,180,216,0.12), rgba(0,180,216,0.03));
         border-left: 4px solid #00b4d8;
-        border-radius: 8px;
+        border-radius: 12px;
         padding: 16px 20px;
         margin: 8px 0;
         color: #66d9f0;
         font-size: 14px;
+        backdrop-filter: blur(10px);
     }
 
-    /* Section headers */
+    /* ─── Section Headers ─── */
     .section-header {
-        font-size: 1.4rem;
-        font-weight: 700;
-        color: #e6f1ff;
-        margin: 20px 0 10px 0;
+        font-size: 1.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #e6f1ff, #ccd6f6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 20px 0 12px 0;
         display: flex;
         align-items: center;
         gap: 10px;
+        letter-spacing: -0.3px;
     }
 
-    /* Status badge */
-    .badge-ok { background: #00d4aa22; color: #00d4aa; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-    .badge-warn { background: #ffaa0022; color: #ffaa00; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-    .badge-critical { background: #ff434322; color: #ff4343; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    /* ─── Status Badges ─── */
+    .badge-ok { background: #00d4aa18; color: #00d4aa; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid #00d4aa30; }
+    .badge-warn { background: #ffaa0018; color: #ffaa00; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid #ffaa0030; }
+    .badge-critical { background: #ff434318; color: #ff4343; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid #ff434330; }
 
-    /* Sidebar */
+    /* ─── Sidebar ─── */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d1b2a, #1b1b3a);
+        background: linear-gradient(180deg, #0d1b2a 0%, #1b1b3a 100%);
+        border-right: 1px solid rgba(255,255,255,0.06);
     }
 
-    /* Hero */
+    /* ─── Hero Section ─── */
     .hero-title {
-        font-size: 2rem;
+        font-size: 2.2rem;
         font-weight: 800;
         background: linear-gradient(135deg, #00d4aa 0%, #00b4d8 50%, #7b68ee 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 4px;
+        letter-spacing: -0.5px;
     }
     .hero-subtitle {
-        color: #8892b0;
+        color: #6b7b9e;
         font-size: 0.95rem;
-        margin-bottom: 20px;
+        margin-bottom: 24px;
+        line-height: 1.6;
     }
 
-    /* Footer */
+    /* ─── Buttons ─── */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.3px;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 16px rgba(0,212,170,0.25);
+    }
+    .stButton > button[kind="primary"]:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 28px rgba(0,212,170,0.35) !important;
+    }
+    .stButton > button[kind="secondary"] {
+        background: rgba(255,255,255,0.05) !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        border-radius: 12px !important;
+        color: #ccd6f6 !important;
+        transition: all 0.3s ease !important;
+    }
+    .stButton > button[kind="secondary"]:hover {
+        background: rgba(255,255,255,0.08) !important;
+        border-color: rgba(0,212,170,0.3) !important;
+    }
+
+    /* ─── Inputs ─── */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stSelectbox > div > div {
+        background: rgba(255,255,255,0.04) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 10px !important;
+        color: #e6f1ff !important;
+        transition: border-color 0.3s ease;
+    }
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #00d4aa !important;
+        box-shadow: 0 0 0 2px rgba(0,212,170,0.15) !important;
+    }
+
+    /* ─── Radio Buttons ─── */
+    .stRadio > div {
+        background: rgba(255,255,255,0.02);
+        border-radius: 12px;
+        padding: 4px;
+    }
+
+    /* ─── Expander ─── */
+    .streamlit-expanderHeader {
+        background: rgba(255,255,255,0.03) !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255,255,255,0.06) !important;
+        font-weight: 600;
+    }
+
+    /* ─── Images ─── */
+    [data-testid="stImage"] {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* ─── Dividers ─── */
+    hr {
+        border-color: rgba(255,255,255,0.06) !important;
+        margin: 20px 0 !important;
+    }
+
+    /* ─── Footer ─── */
     .footer {
         text-align: center;
-        padding: 30px;
+        padding: 32px;
         color: #4a5568;
         font-size: 12px;
-        margin-top: 40px;
+        margin-top: 48px;
+        border-top: 1px solid rgba(255,255,255,0.04);
     }
 
-    /* Better dataframe */
-    .stDataFrame { border-radius: 12px; overflow: hidden; }
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    /* ─── Animations ─── */
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(-10px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    /* ─── Better DataFrames ─── */
+    .stDataFrame { border-radius: 16px; overflow: hidden; }
+
+    /* ─── Form Container ─── */
+    [data-testid="stForm"] {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+        padding: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -273,6 +408,411 @@ def get_embedding(model, image):
         embedding = model(img_tensor).squeeze().numpy()
     return embedding / np.linalg.norm(embedding)  # L2 normalize
 
+
+def get_robust_embedding(model, image, return_views=False):
+    """Generate robust embedding by averaging 5 augmented views of 1 photo.
+    
+    Augmentations: original + center-crop + left-crop + right-crop + brightness
+    Takes ~3 seconds extra, gives much better matching accuracy.
+    
+    If return_views=True, returns (embedding, views_list, view_names)
+    """
+    import torch
+    from torchvision import transforms
+    from PIL import ImageEnhance
+    
+    img = image.convert("RGB")
+    w, h = img.size
+    
+    # Generate 5 views from 1 photo
+    view_names = ["Original", "Center 80%", "Left Crop", "Right Crop", "Bright +20%"]
+    views = [img]  # Original
+    
+    # Center crop (80%)
+    margin_w, margin_h = int(w * 0.1), int(h * 0.1)
+    views.append(img.crop((margin_w, margin_h, w - margin_w, h - margin_h)))
+    
+    # Left-shifted crop
+    views.append(img.crop((0, margin_h, int(w * 0.85), h - margin_h)))
+    
+    # Right-shifted crop
+    views.append(img.crop((int(w * 0.15), margin_h, w, h - margin_h)))
+    
+    # Brightness variation
+    enhancer = ImageEnhance.Brightness(img)
+    views.append(enhancer.enhance(1.2))
+    
+    # Compute embeddings for all views and average
+    embeddings = []
+    for view in views:
+        emb = get_embedding(model, view)
+        embeddings.append(emb)
+    
+    avg_emb = np.mean(embeddings, axis=0)
+    normalized = avg_emb / np.linalg.norm(avg_emb)  # L2 normalize
+    
+    if return_views:
+        return normalized, views, view_names
+    return normalized
+
+
+# ── Auto-Crop & OCR Helpers ───────────────────────────────────────────────
+def auto_crop_product(image, yolo_model, conf=0.3, padding=5):
+    """Auto-crop product from image using YOLO → GrabCut fallback.
+    
+    Strategy:
+      1. Try YOLO detection (works for shelf/multi-product scenes)
+      2. If YOLO misses → use GrabCut foreground segmentation
+         (works for single product close-ups on table/plain background)
+    
+    Returns: (cropped_image, bbox) or (original, None)
+    """
+    import cv2
+    img_np = np.array(image)
+    
+    # ── Step 1: Try YOLO detection ────────────────────────────────────
+    results = yolo_model(img_np, conf=conf, imgsz=640, verbose=False)
+
+    best_crop = None
+    best_area = 0
+    best_bbox = None
+
+    for r in results:
+        for box in r.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+            h, w = img_np.shape[:2]
+            x1 = max(0, x1 - padding)
+            y1 = max(0, y1 - padding)
+            x2 = min(w, x2 + padding)
+            y2 = min(h, y2 + padding)
+            area = (x2 - x1) * (y2 - y1)
+            if area > best_area:
+                best_area = area
+                best_crop = image.crop((x1, y1, x2, y2))
+                best_bbox = (x1, y1, x2, y2)
+
+    if best_crop:
+        # ── Refine YOLO crop with GrabCut for tighter boundary ──
+        try:
+            crop_np = cv2.cvtColor(np.array(best_crop), cv2.COLOR_RGB2BGR)
+            ch, cw = crop_np.shape[:2]
+            if ch > 50 and cw > 50:  # Only refine if crop is large enough
+                margin_x = max(5, int(cw * 0.05))
+                margin_y = max(5, int(ch * 0.05))
+                rect = (margin_x, margin_y, cw - 2 * margin_x, ch - 2 * margin_y)
+                mask = np.zeros((ch, cw), np.uint8)
+                bgd_model = np.zeros((1, 65), np.float64)
+                fgd_model = np.zeros((1, 65), np.float64)
+                cv2.grabCut(crop_np, mask, rect, bgd_model, fgd_model, 3, cv2.GC_INIT_WITH_RECT)
+                fg_mask = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
+                contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                if contours:
+                    largest = max(contours, key=cv2.contourArea)
+                    x, y, rw, rh = cv2.boundingRect(largest)
+                    refine_ratio = (rw * rh) / (cw * ch)
+                    if 0.20 < refine_ratio < 0.95:  # Reasonable refinement
+                        rx1 = max(0, x - 3)
+                        ry1 = max(0, y - 3)
+                        rx2 = min(cw, x + rw + 3)
+                        ry2 = min(ch, y + rh + 3)
+                        refined = best_crop.crop((rx1, ry1, rx2, ry2))
+                        return refined, best_bbox
+        except Exception:
+            pass  # Fall back to YOLO crop if GrabCut fails
+        return best_crop, best_bbox
+
+    # ── Step 2: GrabCut foreground segmentation (fast) ─────────────────
+    # Downsize for speed, then map bbox back to original
+    try:
+        h, w = img_np.shape[:2]
+        max_dim = 480
+        scale = 1.0
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            small = cv2.resize(cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR),
+                               (int(w * scale), int(h * scale)))
+        else:
+            small = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+
+        sh, sw = small.shape[:2]
+        margin_x, margin_y = int(sw * 0.10), int(sh * 0.10)
+        rect = (margin_x, margin_y, sw - 2 * margin_x, sh - 2 * margin_y)
+
+        mask = np.zeros((sh, sw), np.uint8)
+        bgd_model = np.zeros((1, 65), np.float64)
+        fgd_model = np.zeros((1, 65), np.float64)
+
+        cv2.grabCut(small, mask, rect, bgd_model, fgd_model, 3, cv2.GC_INIT_WITH_RECT)
+
+        fg_mask = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
+
+        contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            largest = max(contours, key=cv2.contourArea)
+            x, y, cw, ch = cv2.boundingRect(largest)
+            crop_ratio = (cw * ch) / (sw * sh)
+
+            # Skip crop if product already fills >60% of frame
+            # (cropping would cut off parts of the product)
+            if crop_ratio > 0.60:
+                return image, None
+
+            if crop_ratio > 0.05:
+                inv = 1.0 / scale
+                pad = padding
+                x1 = max(0, int(x * inv) - pad)
+                y1 = max(0, int(y * inv) - pad)
+                x2 = min(w, int((x + cw) * inv) + pad)
+                y2 = min(h, int((y + ch) * inv) + pad)
+                cropped = image.crop((x1, y1, x2, y2))
+                return cropped, (x1, y1, x2, y2)
+    except Exception:
+        pass
+    
+    return image, None
+
+
+def detect_all_products(image, yolo_model, conf=0.3, padding=3):
+    """Detect ALL products in a shelf image. Returns list of (crop, bbox)."""
+    img_np = np.array(image)
+    results = yolo_model(img_np, conf=conf, imgsz=640, verbose=False)
+
+    crops = []
+    h, w = img_np.shape[:2]
+    for r in results:
+        for box in r.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+            x1 = max(0, x1 - padding)
+            y1 = max(0, y1 - padding)
+            x2 = min(w, x2 + padding)
+            y2 = min(h, y2 + padding)
+            crop = image.crop((x1, y1, x2, y2))
+            bbox = (x1, y1, x2, y2)
+            crops.append((crop, bbox, float(box.conf[0])))
+    return crops
+
+
+@st.cache_resource
+def load_ocr():
+    """Load EasyOCR reader for product text recognition."""
+    try:
+        import easyocr
+        reader = easyocr.Reader(["en"], gpu=False, verbose=False)
+        return reader
+    except Exception as e:
+        st.warning(f"OCR not available: {e}")
+        return None
+
+
+def extract_text_from_crop(ocr_reader, crop_image):
+    """Extract product name + quantity from crop using OCR.
+    
+    Strategy:
+      1. Find the LARGEST text on the label (= brand name, in big font)
+      2. Extract quantity pattern (2.25L, 330ml, 500g, etc.)
+      3. Return: "BrandName Quantity"
+    """
+    if ocr_reader is None:
+        return ""
+    try:
+        # Resize for speed — OCR is very slow on full-res phone images
+        img = crop_image.copy()
+        max_dim = 640
+        if max(img.size) > max_dim:
+            ratio = max_dim / max(img.size)
+            img = img.resize((int(img.width * ratio), int(img.height * ratio)), Image.LANCZOS)
+        img_np = np.array(img)
+        results = ocr_reader.readtext(img_np, detail=1, paragraph=False)
+        if not results:
+            return ""
+
+        # ── Step 1: Find brand name (largest text by bbox area) ────────
+        brand_name = ""
+        max_area = 0
+        for (bbox, text, conf) in results:
+            text = text.strip()
+            if conf < 0.2 or len(text) < 2:
+                continue
+            # Skip common non-brand words
+            skip_words = {"ingredients", "nutrition", "serving", "energy",
+                          "protein", "sugar", "sodium", "carbohydrate", "fat",
+                          "total", "added", "manufactured", "contains", "per",
+                          "information", "flavours", "natural", "artificial",
+                          "carbonated", "water", "values", "approximate"}
+            if text.lower() in skip_words:
+                continue
+            # Calculate bbox area (larger text = more prominent = brand name)
+            xs = [p[0] for p in bbox]
+            ys = [p[1] for p in bbox]
+            area = (max(xs) - min(xs)) * (max(ys) - min(ys))
+            if area > max_area:
+                max_area = area
+                brand_name = text
+
+        # ── Step 2: Extract quantity pattern (2.25L, 330ml, 500g) ─────
+        quantity = ""
+        all_text = " ".join([t for (_, t, c) in results if c > 0.2])
+        qty_match = re.search(
+            r'(\d+\.?\d*)\s*(ml|ML|mL|ltr|LTR|Ltr|[lL]|[gG]|[kK][gG])\b',
+            all_text
+        )
+        if qty_match:
+            quantity = qty_match.group(0).strip()
+
+        # ── Combine ───────────────────────────────────────────────────
+        parts = [p for p in [brand_name, quantity] if p]
+        return " ".join(parts) if parts else ""
+    except Exception:
+        return ""
+
+
+def scan_barcode(image):
+    """Detect and decode barcodes using OpenCV's built-in BarcodeDetector.
+    Tries multiple rotations and preprocessing for robustness.
+    Returns barcode string or None.
+    """
+    try:
+        import cv2
+        detector = cv2.barcode.BarcodeDetector()
+        img_np = np.array(image)
+
+        # Try 4 rotations × 2 preprocessing methods
+        for rotation in [0, 90, 180, 270]:
+            if rotation == 0:
+                rotated = img_np
+            else:
+                rotated = np.array(image.rotate(-rotation, expand=True))
+
+            # Method 1: Original
+            gray = cv2.cvtColor(rotated, cv2.COLOR_RGB2GRAY)
+            ok, decoded_info, _, _ = detector.detectAndDecodeMulti(gray)
+            if ok and decoded_info is not None:
+                for info in decoded_info:
+                    if info and len(info) >= 4:
+                        return info
+
+            # Method 2: Enhanced contrast
+            gray_eq = cv2.equalizeHist(gray)
+            ok, decoded_info, _, _ = detector.detectAndDecodeMulti(gray_eq)
+            if ok and decoded_info is not None:
+                for info in decoded_info:
+                    if info and len(info) >= 4:
+                        return info
+
+        return None
+    except Exception:
+        return None
+
+
+def lookup_barcode_info(barcode_number):
+    """Lookup product info from barcode using Open Food Facts API (free).
+    Note: Many Indian products are NOT in the database — that's normal.
+    Returns dict with name, category, brand or empty dict.
+    """
+    try:
+        url = f"https://world.openfoodfacts.org/api/v0/product/{barcode_number}.json"
+        headers = {"User-Agent": "ShelfMind/1.0 (retail-compliance)"}
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200 and resp.text:
+            import json
+            try:
+                data = json.loads(resp.text)
+            except json.JSONDecodeError:
+                return {}
+            if data.get("status") == 1:
+                product = data.get("product", {})
+                name = product.get("product_name", "")
+                brand = product.get("brands", "")
+                category = product.get("categories", "").split(",")[0].strip() if product.get("categories") else ""
+                quantity = product.get("quantity", "")
+                # Build a useful product name
+                full_name = ""
+                if brand and name:
+                    full_name = f"{brand} {name}"
+                elif name:
+                    full_name = name
+                elif brand:
+                    full_name = brand
+                if quantity and quantity not in full_name:
+                    full_name = f"{full_name} {quantity}".strip()
+                return {
+                    "name": full_name,
+                    "category": category,
+                    "brand": brand,
+                    "quantity": quantity,
+                }
+    except Exception:
+        pass
+    return {}
+
+
+def get_crop_geometry(bbox):
+    """Get geometry features from bounding box for size-based discrimination."""
+    if bbox is None:
+        return {"width": 0, "height": 0, "aspect_ratio": 0, "area": 0}
+    x1, y1, x2, y2 = bbox
+    w = x2 - x1
+    h = y2 - y1
+    return {
+        "width": w,
+        "height": h,
+        "aspect_ratio": round(h / max(w, 1), 2),
+        "area": w * h,
+    }
+
+
+def cluster_unique_products(crops_data, dinov2_model, similarity_threshold=0.85):
+    """Cluster detected crops by visual similarity to find unique products.
+    Returns a list of unique product groups with representative crop.
+    """
+    if not crops_data:
+        return []
+
+    # Get embeddings for all crops
+    embeddings = []
+    for crop, bbox, conf in crops_data:
+        emb = get_embedding(dinov2_model, crop)
+        embeddings.append(emb)
+
+    embeddings = np.array(embeddings, dtype=np.float32)
+
+    # Simple greedy clustering by cosine similarity
+    used = set()
+    clusters = []
+
+    for i in range(len(embeddings)):
+        if i in used:
+            continue
+        cluster = {"representative_idx": i, "members": [i], "count": 1}
+        used.add(i)
+
+        for j in range(i + 1, len(embeddings)):
+            if j in used:
+                continue
+            sim = float(np.dot(embeddings[i], embeddings[j]))
+            if sim >= similarity_threshold:
+                cluster["members"].append(j)
+                cluster["count"] += 1
+                used.add(j)
+
+        clusters.append(cluster)
+
+    # Build results with representative crop info
+    unique_products = []
+    for cluster in sorted(clusters, key=lambda c: c["count"], reverse=True):
+        idx = cluster["representative_idx"]
+        crop, bbox, conf = crops_data[idx]
+        unique_products.append({
+            "crop": crop,
+            "bbox": bbox,
+            "confidence": conf,
+            "count": cluster["count"],
+            "embedding": embeddings[idx].tolist(),
+            "geometry": get_crop_geometry(bbox),
+        })
+
+    return unique_products
+
 # ── Product Catalog Management ────────────────────────────────────────────
 def load_catalog():
     """Load product catalog from SQLite database."""
@@ -308,6 +848,82 @@ def search_product(index, products, query_embedding, threshold=0.5):
     if score >= threshold:
         return products[int(indices[0][0])], score
     return None, score
+
+
+def search_product_with_size(index, products, query_embedding, query_bbox,
+                              expected_products_on_shelf=None, threshold=0.5,
+                              size_weight=0.15):
+    """Enhanced search: DINOv2 visual similarity + bounding box size-ratio.
+    
+    Combines visual embedding score with height-ratio comparison
+    to distinguish same-brand, different-size products.
+    
+    Args:
+        index: FAISS index
+        products: List of indexed products
+        query_embedding: DINOv2 embedding of detected crop
+        query_bbox: (x1, y1, x2, y2) of detected product
+        expected_products_on_shelf: List of expected planogram positions with bbox info
+        threshold: Minimum combined score to accept
+        size_weight: How much size-ratio influences final score (0-1)
+    
+    Returns:
+        (matched_product, combined_score)
+    """
+    if index is None or len(products) == 0:
+        return None, 0.0
+
+    # Step 1: Get top-3 visual matches from FAISS
+    k = min(3, len(products))
+    query = np.array([query_embedding], dtype=np.float32)
+    scores, indices = index.search(query, k)
+
+    if float(scores[0][0]) < threshold:
+        return None, float(scores[0][0])
+
+    # If no expected products or no bbox → fall back to pure visual
+    if expected_products_on_shelf is None or query_bbox is None:
+        return products[int(indices[0][0])], float(scores[0][0])
+
+    # Step 2: Get detected product height
+    qx1, qy1, qx2, qy2 = query_bbox
+    query_height = qy2 - qy1
+
+    # Step 3: Score each candidate with size-ratio fusion
+    best_match = None
+    best_combined = 0.0
+
+    for rank in range(k):
+        visual_score = float(scores[0][rank])
+        if visual_score < threshold * 0.8:  # Skip very low visual matches
+            continue
+        candidate = products[int(indices[0][rank])]
+        candidate_sku = candidate["sku"]
+
+        # Find this SKU's expected bbox in planogram
+        size_score = 1.0  # Default: no penalty
+        for exp_prod in expected_products_on_shelf:
+            if exp_prod.get("sku") == candidate_sku:
+                exp_bbox = exp_prod.get("bbox")
+                if exp_bbox and len(exp_bbox) == 4:
+                    exp_height = exp_bbox[3] - exp_bbox[1]
+                    if exp_height > 0 and query_height > 0:
+                        # Height ratio — 1.0 = perfect match, <1.0 = size mismatch
+                        height_ratio = min(query_height, exp_height) / max(query_height, exp_height)
+                        size_score = height_ratio
+                break
+
+        # Fused score: visual * (1-w) + size * w
+        combined = visual_score * (1 - size_weight) + size_score * size_weight
+
+        if combined > best_combined:
+            best_combined = combined
+            best_match = candidate
+
+    if best_match and best_combined >= threshold:
+        return best_match, best_combined
+    # Fallback to top visual match
+    return products[int(indices[0][0])], float(scores[0][0])
 
 # ── Planogram Management (now via SQLite) ─────────────────────────────────
 def load_planograms():
@@ -426,7 +1042,7 @@ def assign_to_shelves(detections, boundaries):
     return shelf_assignments
 
 def draw_annotated_image(image, detections, product_labels=None):
-    """Draw bounding boxes with labels on image."""
+    """Draw bounding boxes with confidence-colored labels on image."""
     draw_img = image.copy()
     draw = ImageDraw.Draw(draw_img)
     try:
@@ -434,18 +1050,19 @@ def draw_annotated_image(image, detections, product_labels=None):
     except:
         font = ImageFont.load_default()
 
-    colors = {
-        "match": "#00d4aa",
-        "missing": "#ff4343",
-        "misplaced": "#ffaa00",
-        "unknown": "#00b4d8",
-        "default": "#00d4aa",
-    }
-
     for i, det in enumerate(detections):
         x1, y1, x2, y2 = det["bbox"]
-        status = det.get("status", "default")
-        color = colors.get(status, colors["default"])
+        match_score = det.get("match_score", det.get("confidence", 0))
+
+        # Confidence-based coloring
+        if det.get("status") == "unknown" or match_score < 0.3:
+            color = "#ff4343"  # Red — unknown
+        elif match_score >= 0.7:
+            color = "#00d4aa"  # Green — high confidence
+        elif match_score >= 0.5:
+            color = "#ffaa00"  # Yellow — medium
+        else:
+            color = "#ff8c00"  # Orange — low
 
         # Draw box
         draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
@@ -459,8 +1076,7 @@ def draw_annotated_image(image, detections, product_labels=None):
         else:
             label = f"P{i+1}"
 
-        conf = det.get("confidence", 0)
-        text = f"{label} ({conf:.0%})" if label else f"{conf:.0%}"
+        text = f"{label} ({match_score:.0%})" if label else f"{match_score:.0%}"
 
         bbox = draw.textbbox((x1, y1 - 18), text, font=font)
         draw.rectangle([bbox[0]-2, bbox[1]-2, bbox[2]+2, bbox[3]+2], fill=color)
@@ -561,99 +1177,382 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 # ══════════════════════════════════════════════════════════════════════════
 with tab1:
     st.markdown('<div class="section-header">📸 Product Scanner — Register Your Products</div>', unsafe_allow_html=True)
-    st.caption("Show each product to the camera to build your store's product database. This enables SKU-level recognition.")
+    st.caption("Register products individually or bulk-scan a store shelf image to auto-detect and register all unique products.")
 
-    catalog = load_catalog()
+    # ── Choose Scan Mode ──────────────────────────────────────────────
+    scan_mode = st.radio(
+        "Scan Mode",
+        ["📷 Single Product Scan", "🏪 Bulk Store Shelf Scan"],
+        horizontal=True, key="scan_mode"
+    )
 
-    col_cam, col_form = st.columns([1, 1])
+    # ══════════════════════════════════════════════════════════════════
+    # ── MODE 1: SINGLE PRODUCT SCAN (with auto-crop + OCR) ──────────
+    # ══════════════════════════════════════════════════════════════════
+    if scan_mode == "📷 Single Product Scan":
+        catalog = load_catalog()
+        col_cam, col_form = st.columns([1, 1])
 
-    with col_cam:
-        st.markdown("##### Capture Product Image")
-        img_source = st.radio(
-            "Image Source",
-            ["📱 Phone Camera", "💻 Laptop Camera", "📁 Upload"],
-            horizontal=True, key="scanner_source"
+        with col_cam:
+            st.markdown("##### Capture Product Image")
+            img_source = st.radio(
+                "Image Source",
+                ["📱 Phone Camera", "💻 Laptop Camera", "📁 Upload"],
+                horizontal=True, key="scanner_source"
+            )
+
+            captured_img = None
+            if img_source == "📱 Phone Camera":
+                st.info("Point your phone at the product, then click capture 👇")
+                if st.button("📸 Capture from Phone", type="primary", key="phone_cap_scanner"):
+                    captured_img = capture_from_phone(phone_cam_url, phone_rotation)
+                    if captured_img:
+                        st.session_state["scanner_phone_img"] = captured_img
+                # Persist across reruns
+                if "scanner_phone_img" in st.session_state:
+                    captured_img = st.session_state["scanner_phone_img"]
+
+            elif img_source == "💻 Laptop Camera":
+                camera_photo = st.camera_input("Point camera at the product", key="scanner_cam")
+                if camera_photo:
+                    captured_img = Image.open(camera_photo).convert("RGB")
+            else:
+                uploaded_photo = st.file_uploader(
+                    "Upload product photo",
+                    type=["jpg", "jpeg", "png"],
+                    key="scanner_upload"
+                )
+                if uploaded_photo:
+                    captured_img = Image.open(uploaded_photo).convert("RGB")
+
+            # Show captured image + barcode + optional OCR
+            if captured_img:
+                st.image(captured_img, caption="Captured product", width='stretch')
+                st.caption("💡 *Tip: Frame the product close-up with the label/barcode facing the camera*")
+
+                # Auto-scan barcode + lookup product info
+                barcode_text = scan_barcode(captured_img)
+                barcode_info = {}
+                if barcode_text:
+                    st.success(f"📊 **Barcode detected:** `{barcode_text}`")
+                    with st.spinner("Looking up product info from barcode..."):
+                        barcode_info = lookup_barcode_info(barcode_text)
+                    if barcode_info.get("name"):
+                        st.info(f"🏷️ **Auto-identified:** {barcode_info['name']}")
+                        if barcode_info.get("category"):
+                            st.caption(f"Category: {barcode_info['category']}")
+                    else:
+                        st.caption("Product not found in online database — enter name manually")
+                else:
+                    st.caption("No barcode found (flip product to show barcode, or enter name manually)")
+
+                # Optional OCR for name suggestion
+                ocr_text = ""
+                if st.checkbox("🔤 Run OCR to read label text", value=False, key="run_ocr"):
+                    ocr_reader = load_ocr()
+                    if ocr_reader:
+                        with st.spinner("Reading label text..."):
+                            ocr_text = extract_text_from_crop(ocr_reader, captured_img)
+                        if ocr_text:
+                            st.info(f"📝 **OCR detected:** {ocr_text}")
+                        else:
+                            st.caption("No readable text found on label")
+
+                # ── rembg Background Removal for perfect product crop ──
+                import cv2
+                cropped_img = captured_img  # fallback to full image
+                try:
+                    from rembg import remove
+                    with st.spinner("✂️ Removing background (AI segmentation)..."):
+                        # Remove background → returns RGBA image
+                        result = remove(captured_img)
+                        # Get alpha channel to find product boundaries
+                        alpha = np.array(result.split()[-1])  # Alpha channel
+                        # Find bounding box of non-transparent pixels
+                        coords = np.where(alpha > 30)
+                        if len(coords[0]) > 0:
+                            y_min, y_max = coords[0].min(), coords[0].max()
+                            x_min, x_max = coords[1].min(), coords[1].max()
+                            pad = 5
+                            h, w = alpha.shape
+                            x1 = max(0, x_min - pad)
+                            y1 = max(0, y_min - pad)
+                            x2 = min(w, x_max + pad)
+                            y2 = min(h, y_max + pad)
+                            # Crop the ORIGINAL image (not the transparent one)
+                            cropped_img = captured_img.crop((x1, y1, x2, y2))
+                            st.success("✂️ Product perfectly cropped (AI background removal)")
+                            st.image(cropped_img, caption="Auto-cropped product (used for embedding)", width=250)
+                        else:
+                            st.caption("ℹ️ Using full image")
+                except ImportError:
+                    st.caption("ℹ️ rembg not installed — using full image")
+                except Exception as e:
+                    st.caption(f"ℹ️ Using full image (crop error: {e})")
+
+                # Store for form submission
+                st.session_state["scanner_cropped"] = cropped_img  # Cropped for embedding
+                st.session_state["scanner_full_img"] = captured_img  # Full for reference
+                # Priority: barcode name > OCR text > empty
+                auto_name = barcode_info.get("name", "") or ocr_text
+                st.session_state["scanner_ocr_text"] = auto_name
+                st.session_state["scanner_barcode"] = barcode_text or ""
+                st.session_state["scanner_barcode_info"] = barcode_info
+
+        with col_form:
+            st.markdown("##### Product Details")
+            # Pre-fill name from OCR/barcode/voice if available
+            default_name = st.session_state.get("scanner_ocr_text", "")
+            default_barcode = st.session_state.get("scanner_barcode", "")
+
+            # Voice input via Web Speech API
+            voice_html = """
+            <div style="margin-bottom:8px;">
+                <button id="voiceBtn" onclick="startVoice()" style="
+                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                    color: white; border: none; padding: 8px 16px;
+                    border-radius: 8px; cursor: pointer; font-size: 14px;
+                    display: inline-flex; align-items: center; gap: 6px;
+                ">🎤 Speak Product Name</button>
+                <span id="voiceStatus" style="color:#aaa; font-size:13px; margin-left:8px;"></span>
+            </div>
+            <script>
+            function startVoice() {
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    document.getElementById('voiceStatus').innerText = '❌ Speech not supported in this browser';
+                    return;
+                }
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'en-IN';
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                document.getElementById('voiceBtn').style.background = '#ef4444';
+                document.getElementById('voiceBtn').innerHTML = '🔴 Listening...';
+                document.getElementById('voiceStatus').innerText = 'Speak now...';
+                recognition.start();
+                recognition.onresult = function(event) {
+                    const text = event.results[0][0].transcript;
+                    document.getElementById('voiceStatus').innerText = '✅ ' + text;
+                    document.getElementById('voiceBtn').style.background = 'linear-gradient(135deg, #6366f1, #8b5cf6)';
+                    document.getElementById('voiceBtn').innerHTML = '🎤 Speak Product Name';
+                    // Send to Streamlit
+                    window.parent.postMessage({type: 'streamlit:setComponentValue', value: text}, '*');
+                };
+                recognition.onerror = function(e) {
+                    document.getElementById('voiceStatus').innerText = '❌ ' + e.error;
+                    document.getElementById('voiceBtn').style.background = 'linear-gradient(135deg, #6366f1, #8b5cf6)';
+                    document.getElementById('voiceBtn').innerHTML = '🎤 Speak Product Name';
+                };
+            }
+            </script>
+            """
+            st.markdown(voice_html, unsafe_allow_html=True)
+
+            with st.form("product_form", clear_on_submit=True):
+                prod_name = st.text_input("Product Name *", value=default_name, placeholder="e.g., Coca-Cola 330ml (or use 🎤 above)")
+                prod_barcode = st.text_input("Barcode", value=default_barcode, placeholder="Auto-detected or enter manually")
+                p_cols = st.columns(2)
+                with p_cols[0]:
+                    prod_price = st.number_input("Price (₹)", min_value=0.0, value=0.0, step=0.5)
+                with p_cols[1]:
+                    prod_category = st.selectbox("Category", [
+                        "Beverages", "Snacks", "Dairy", "Canned Goods",
+                        "Bakery", "Cleaning", "Personal Care", "Frozen",
+                        "Fruits & Vegetables", "Other"
+                    ])
+
+                submitted = st.form_submit_button("✅ Register Product", type="primary", width='stretch')
+
+                if submitted and prod_name:
+                    # Use auto-cropped image if available
+                    reg_img = st.session_state.get("scanner_cropped", captured_img)
+                    if reg_img:
+                        with st.spinner("Registering product (DINOv2 embedding)..."):
+                            next_id = get_next_product_id()
+                            sku_id = f"SKU_{next_id:04d}"
+
+                            # Save product image
+                            img_filename = f"{sku_id}_{re.sub(r'[^a-z0-9_]', '', prod_name.replace(' ', '_').lower())}.jpg"
+                            img_path = REF_IMG_DIR / img_filename
+                            reg_img.save(str(img_path), "JPEG", quality=90)
+
+                            # Generate robust DINOv2 embedding (5 views averaged)
+                            dinov2 = load_dinov2()
+                            embedding = None
+                            if dinov2:
+                                result = get_robust_embedding(dinov2, reg_img, return_views=True)
+                                emb_vec, aug_views, view_names = result
+                                embedding = emb_vec.tolist()
+                                # Show the 5 augmented views
+                                st.markdown("**🔄 5 Augmented Views (used for robust embedding):**")
+                                view_cols = st.columns(5)
+                                for i, (v, vname) in enumerate(zip(aug_views, view_names)):
+                                    with view_cols[i]:
+                                        st.image(v, caption=vname, width="content")
+
+                            # Save to SQLite database
+                            add_product(
+                                sku=sku_id,
+                                name=prod_name,
+                                category=prod_category,
+                                price=prod_price,
+                                image_path=img_filename,
+                                embedding=embedding,
+                                barcode=prod_barcode if prod_barcode else None,
+                            )
+
+                            st.success(f"✅ **{prod_name}** registered as **{sku_id}** in database!")
+                            st.rerun()
+                    else:
+                        st.warning("Please capture a product photo first.")
+                elif submitted and not prod_name:
+                    st.warning("Please enter a product name.")
+
+    # ══════════════════════════════════════════════════════════════════
+    # ── MODE 2: BULK STORE SHELF SCAN ────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════
+    else:
+        st.markdown("""
+        **How it works:**  
+        1️⃣ Upload a store shelf image → 2️⃣ YOLO detects all products → 3️⃣ DINOv2 clusters unique ones →  
+        4️⃣ OCR reads text from each → 5️⃣ Label & register all unique products at once!
+        """)
+
+        shelf_upload = st.file_uploader(
+            "📤 Upload Store Shelf Image",
+            type=["jpg", "jpeg", "png"],
+            key="bulk_shelf_upload"
         )
 
-        captured_img = None
-        if img_source == "📱 Phone Camera":
-            st.info("Point your phone at the product, then click capture 👇")
-            if st.button("📸 Capture from Phone", type="primary", key="phone_cap_scanner"):
-                captured_img = capture_from_phone(phone_cam_url, phone_rotation)
-                if captured_img:
-                    st.session_state["scanner_phone_img"] = captured_img
-            # Persist across reruns
-            if "scanner_phone_img" in st.session_state:
-                captured_img = st.session_state["scanner_phone_img"]
+        if shelf_upload:
+            shelf_img = Image.open(shelf_upload).convert("RGB")
+            st.image(shelf_img, caption=f"Uploaded shelf ({shelf_img.size[0]}×{shelf_img.size[1]})", width='stretch')
 
-        elif img_source == "💻 Laptop Camera":
-            camera_photo = st.camera_input("Point camera at the product", key="scanner_cam")
-            if camera_photo:
-                captured_img = Image.open(camera_photo).convert("RGB")
-        else:
-            uploaded_photo = st.file_uploader(
-                "Upload product photo",
-                type=["jpg", "jpeg", "png"],
-                key="scanner_upload"
-            )
-            if uploaded_photo:
-                captured_img = Image.open(uploaded_photo).convert("RGB")
+            # Detection + Clustering
+            if st.button("🔍 Detect & Extract Unique Products", type="primary", key="bulk_detect"):
+                yolo = load_yolo()
+                dinov2 = load_dinov2()
 
-        if captured_img:
-            st.image(captured_img, caption="Captured product", width='stretch')
+                if yolo and dinov2:
+                    with st.spinner("Step 1/3: Detecting products with YOLO..."):
+                        all_crops = detect_all_products(shelf_img, yolo, conf=0.3)
+                        st.info(f"🔍 Detected **{len(all_crops)}** product instances")
 
-    with col_form:
-        st.markdown("##### Product Details")
-        with st.form("product_form", clear_on_submit=True):
-            prod_name = st.text_input("Product Name *", placeholder="e.g., Coca-Cola 330ml")
-            p_cols = st.columns(2)
-            with p_cols[0]:
-                prod_price = st.number_input("Price (₹)", min_value=0.0, value=0.0, step=0.5)
-            with p_cols[1]:
-                prod_category = st.selectbox("Category", [
-                    "Beverages", "Snacks", "Dairy", "Canned Goods",
-                    "Bakery", "Cleaning", "Personal Care", "Frozen",
-                    "Fruits & Vegetables", "Other"
-                ])
+                        # Draw all detections on image
+                        annotated = shelf_img.copy()
+                        draw = ImageDraw.Draw(annotated)
+                        for crop, bbox, conf in all_crops:
+                            draw.rectangle(bbox, outline="lime", width=2)
+                        st.image(annotated, caption=f"All detections ({len(all_crops)} products)", width='stretch')
 
-            submitted = st.form_submit_button("✅ Register Product", type="primary", width='stretch')
+                    if all_crops:
+                        with st.spinner("Step 2/3: Clustering unique products with DINOv2..."):
+                            unique = cluster_unique_products(all_crops, dinov2, similarity_threshold=0.82)
+                            st.success(f"✅ Found **{len(unique)}** unique product types from {len(all_crops)} detections")
 
-            if submitted and captured_img and prod_name:
-                with st.spinner("Registering product..."):
-                    # Generate SKU ID
+                        with st.spinner("Step 3/3: Reading text with OCR..."):
+                            ocr_reader = load_ocr()
+                            for prod in unique:
+                                if ocr_reader:
+                                    prod["ocr_text"] = extract_text_from_crop(ocr_reader, prod["crop"])
+                                else:
+                                    prod["ocr_text"] = ""
+
+                        # Store in session state
+                        st.session_state["bulk_unique_products"] = unique
+                    else:
+                        st.warning("No products detected. Try an image with more visible products.")
+                else:
+                    st.error("Models not loaded. Check YOLO and DINOv2.")
+
+        # ── Display unique products for labeling ──────────────────────
+        if "bulk_unique_products" in st.session_state:
+            unique_products = st.session_state["bulk_unique_products"]
+            st.markdown("---")
+            st.markdown(f"##### 🏷️ Label & Register Unique Products ({len(unique_products)} found)")
+            st.caption("Review each unique product, edit the auto-suggested name, and register them all.")
+
+            # Collect labels
+            product_labels = []
+            for i, prod in enumerate(unique_products):
+                with st.container():
+                    cols = st.columns([1, 2, 1, 1, 1])
+                    with cols[0]:
+                        st.image(prod["crop"], width=100)
+                    with cols[1]:
+                        # Auto-suggest name from OCR
+                        suggested = prod.get("ocr_text", "")[:50] if prod.get("ocr_text") else f"Product_{i+1}"
+                        if not suggested.strip():
+                            suggested = f"Product_{i+1}"
+                        name = st.text_input(
+                            f"Name",
+                            value=suggested,
+                            key=f"bulk_name_{i}",
+                            label_visibility="collapsed",
+                            placeholder="Product name"
+                        )
+                        if prod.get("ocr_text"):
+                            st.caption(f"📝 OCR: {prod['ocr_text'][:80]}")
+                    with cols[2]:
+                        category = st.selectbox("Category", [
+                            "Beverages", "Snacks", "Dairy", "Canned Goods",
+                            "Bakery", "Cleaning", "Personal Care", "Frozen",
+                            "Fruits & Vegetables", "Other"
+                        ], key=f"bulk_cat_{i}", label_visibility="collapsed")
+                    with cols[3]:
+                        geo = prod.get("geometry", {})
+                        st.caption(f"📐 {geo.get('width', 0)}×{geo.get('height', 0)}")
+                        st.caption(f"🔢 ×{prod['count']} instances")
+                    with cols[4]:
+                        include = st.checkbox("Register", value=True, key=f"bulk_inc_{i}")
+
+                    product_labels.append({
+                        "name": name, "category": category,
+                        "include": include, "idx": i
+                    })
+
+            # Register all button
+            st.markdown("---")
+            if st.button("✅ Register All Selected Products", type="primary", key="bulk_register"):
+                dinov2 = load_dinov2()
+                registered_count = 0
+                progress = st.progress(0, text="Registering products...")
+
+                selected = [p for p in product_labels if p["include"] and p["name"].strip()]
+                for j, label in enumerate(selected):
+                    prod = unique_products[label["idx"]]
                     next_id = get_next_product_id()
                     sku_id = f"SKU_{next_id:04d}"
 
-                    # Save image
-                    img_filename = f"{sku_id}_{prod_name.replace(' ', '_').lower()}.jpg"
+                    # Save crop image
+                    img_filename = f"{sku_id}_{re.sub(r'[^a-z0-9_]', '', label['name'].replace(' ', '_').lower())}.jpg"
                     img_path = REF_IMG_DIR / img_filename
-                    captured_img.save(str(img_path), "JPEG", quality=90)
+                    prod["crop"].save(str(img_path), "JPEG", quality=90)
 
-                    # Generate DINOv2 embedding
-                    dinov2 = load_dinov2()
-                    embedding = None
-                    if dinov2:
-                        embedding = get_embedding(dinov2, captured_img).tolist()
+                    # Use pre-computed embedding
+                    embedding = prod.get("embedding")
 
-                    # Save to SQLite database
+                    # Save to database
                     add_product(
                         sku=sku_id,
-                        name=prod_name,
-                        category=prod_category,
-                        price=prod_price,
+                        name=label["name"],
+                        category=label["category"],
+                        price=0.0,
                         image_path=img_filename,
                         embedding=embedding,
                     )
+                    registered_count += 1
+                    progress.progress((j + 1) / len(selected), text=f"Registered {label['name']}...")
 
-                    st.success(f"✅ **{prod_name}** registered as **{sku_id}** in database!")
-                    st.rerun()
+                progress.empty()
+                st.success(f"✅ Registered **{registered_count}** products from store shelf!")
+                # Clear session state
+                if "bulk_unique_products" in st.session_state:
+                    del st.session_state["bulk_unique_products"]
+                st.rerun()
 
-            elif submitted and not prod_name:
-                st.warning("Please enter a product name.")
-            elif submitted and not captured_img:
-                st.warning("Please capture a product photo first.")
-
-    # ── Product Gallery ────────────────────────────────────────────────
+    # ── Product Gallery (shared between both modes) ───────────────────
     st.markdown("---")
     catalog = load_catalog()
     n_products = len(catalog["products"])
@@ -748,15 +1647,99 @@ with tab1:
 # ── TAB 2: PLANOGRAM CREATOR ─────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown('<div class="section-header">📋 Planogram Creator — Auto-Generate Shelf Layouts</div>', unsafe_allow_html=True)
-    st.caption("Arrange products on your shelf, scan it, and the system auto-creates the planogram. No manual JSON needed!")
+    st.markdown('<div class="section-header">📋 Planogram Creator — Build Shelf Layouts</div>', unsafe_allow_html=True)
+    st.caption("Create planograms by auto-detecting from a shelf image OR manually defining product positions.")
 
     catalog = load_catalog()
     n_products = len([p for p in catalog["products"] if p.get("embedding")])
 
     if n_products < 2:
         st.warning(f"⚠️ Register at least 2 products in the **Product Scanner** tab first. Currently: {n_products} products.")
+        plano_mode = None
     else:
+        st.success(f"✅ {n_products} products in database — ready to create planograms!", icon="✅")
+
+        # Mode selection
+        plano_mode = st.radio(
+            "Creation Mode",
+            ["📸 Auto-Detect from Shelf Image", "✏️ Manual Planogram Editor"],
+            horizontal=True, key="plano_mode"
+        )
+
+    # ── MANUAL PLANOGRAM EDITOR ──────────────────────────────────
+    if plano_mode == "✏️ Manual Planogram Editor":
+        st.markdown("##### ✏️ Manual Planogram Builder")
+        st.caption("Select products and quantities for each shelf. 100% accurate — you define exactly what goes where.")
+
+        manual_name = st.text_input("Planogram Name", value="Manual_Shelf_1", key="manual_plano_name")
+        n_shelves = st.number_input("Number of Shelves", min_value=1, max_value=10, value=2, key="manual_n_shelves")
+
+        product_names = [p["name"] for p in catalog["products"] if p.get("embedding")]
+        product_lookup = {p["name"]: p for p in catalog["products"] if p.get("embedding")}
+
+        manual_shelves = []
+        for shelf_idx in range(int(n_shelves)):
+            st.markdown(f"---\n**Shelf {shelf_idx + 1}**")
+            shelf_cols = st.columns([3, 1])
+            with shelf_cols[0]:
+                selected_products = st.multiselect(
+                    f"Products on Shelf {shelf_idx + 1}",
+                    product_names,
+                    key=f"manual_shelf_{shelf_idx}_products"
+                )
+            with shelf_cols[1]:
+                quantities = {}
+                for prod_name in selected_products:
+                    qty = st.number_input(
+                        f"Qty: {prod_name[:15]}", min_value=1, max_value=20, value=1,
+                        key=f"manual_qty_{shelf_idx}_{prod_name}"
+                    )
+                    quantities[prod_name] = qty
+
+            shelf_products = []
+            pos = 0
+            for prod_name in selected_products:
+                prod = product_lookup[prod_name]
+                for _ in range(quantities.get(prod_name, 1)):
+                    shelf_products.append({
+                        "position": pos,
+                        "sku": prod["sku"],
+                        "name": prod["name"],
+                        "confidence": 1.0,
+                        "bbox": [0, 0, 0, 0],  # No bbox for manual
+                    })
+                    pos += 1
+            manual_shelves.append({
+                "level": shelf_idx + 1,
+                "product_count": len(shelf_products),
+                "products": shelf_products,
+            })
+
+            if shelf_products:
+                from collections import Counter
+                counts = Counter(p["name"] for p in shelf_products)
+                summary = ", ".join(f"{n} ×{c}" for n, c in counts.items())
+                st.info(f"📦 Shelf {shelf_idx+1}: {summary}")
+
+        st.markdown("---")
+        total_manual = sum(s["product_count"] for s in manual_shelves)
+        if total_manual > 0:
+            if st.button("✅ Save Manual Planogram", type="primary", width='stretch'):
+                planogram_data = {
+                    "name": manual_name,
+                    "created_at": datetime.now().isoformat(),
+                    "n_shelves": int(n_shelves),
+                    "total_products": total_manual,
+                    "shelves": manual_shelves,
+                }
+                save_planogram(manual_name, planogram_data)
+                st.success(f"✅ Manual planogram **{manual_name}** saved with {int(n_shelves)} shelves and {total_manual} products!")
+                st.balloons()
+        else:
+            st.info("Add products to at least one shelf to save.")
+
+    # ── AUTO-DETECT FROM IMAGE ───────────────────────────────────
+    elif plano_mode == "📸 Auto-Detect from Shelf Image":
         st.success(f"✅ {n_products} products in database — ready to create planograms!", icon="✅")
 
         # Shelf name and image
@@ -814,7 +1797,11 @@ with tab2:
                         x1, y1, x2, y2 = [int(c) for c in det["bbox"]]
                         crop = shelf_image.crop((x1, y1, x2, y2))
                         emb = get_embedding(dinov2, crop)
-                        match, score = search_product(faiss_index, index_products, emb, threshold=0.3)
+                        match, score = search_product_with_size(
+                            faiss_index, index_products, emb,
+                            query_bbox=(x1, y1, x2, y2),
+                            threshold=0.3
+                        )
                         if match:
                             det["product_name"] = match["name"]
                             det["product_sku"] = match["sku"]
@@ -1019,6 +2006,9 @@ with tab3:
                 scan_count = 0
                 retry_count = 0
                 max_retries = 5
+                # Multi-frame voting buffer: stores per-shelf SKU counts from last N frames
+                VOTE_BUFFER_SIZE = 3
+                detection_history = []  # List of per-frame shelf SKU counts
 
                 if st.session_state.get("monitoring_active", False):
                     try:
@@ -1073,24 +2063,72 @@ with tab3:
                             boundaries, n_shelves = detect_shelf_levels(detections, monitor_image.height)
                             shelf_assignments = assign_to_shelves(detections, boundaries)
 
-                            # ── SKU IDENTIFICATION ─────────────────────────────
+                            # ── SKU IDENTIFICATION (DINOv2 + Size-Ratio Fusion) ──
+                            # Collect all expected products from planogram for size comparison
+                            all_expected_products = []
+                            for ps in planogram.get("shelves", []):
+                                all_expected_products.extend(ps.get("products", []))
+
                             for det in detections:
                                 x1, y1, x2, y2 = [int(c) for c in det["bbox"]]
                                 crop = monitor_image.crop((max(0, x1), max(0, y1), x2, y2))
                                 emb = get_embedding(dinov2, crop)
-                                match, score = search_product(faiss_index, index_products, emb, threshold=0.3)
+                                match, score = search_product_with_size(
+                                    faiss_index, index_products, emb,
+                                    query_bbox=(x1, y1, x2, y2),
+                                    expected_products_on_shelf=all_expected_products,
+                                    threshold=0.3,
+                                    size_weight=0.15
+                                )
                                 if match:
                                     det["product_name"] = match["name"]
                                     det["product_sku"] = match["sku"]
                                     det["product_price"] = match.get("price", 0)
+                                    det["match_score"] = round(score, 3)
                                     det["status"] = "match"
                                 else:
                                     det["product_name"] = "Unknown"
                                     det["product_sku"] = "UNKNOWN"
                                     det["product_price"] = 0
+                                    det["match_score"] = round(score, 3)
                                     det["status"] = "unknown"
 
-                            # ── PLANOGRAM COMPARISON ───────────────────────────
+                            # ── MULTI-FRAME VOTING ────────────────────────────
+                            # Collect this frame's per-shelf SKU counts
+                            from collections import Counter
+                            frame_shelf_counts = {}
+                            for shelf_id, shelf_dets in shelf_assignments.items():
+                                sku_counts = Counter(
+                                    d.get("product_sku", "UNKNOWN") for d in shelf_dets
+                                    if d.get("product_sku") != "UNKNOWN"
+                                )
+                                frame_shelf_counts[shelf_id] = dict(sku_counts)
+                            detection_history.append(frame_shelf_counts)
+                            if len(detection_history) > VOTE_BUFFER_SIZE:
+                                detection_history.pop(0)
+
+                            # Voted counts: for each shelf+SKU, use median count across frames
+                            voted_shelf_counts = {}
+                            if len(detection_history) >= 2:
+                                all_shelf_ids = set()
+                                for fsc in detection_history:
+                                    all_shelf_ids.update(fsc.keys())
+                                for sid in all_shelf_ids:
+                                    all_skus = set()
+                                    for fsc in detection_history:
+                                        all_skus.update(fsc.get(sid, {}).keys())
+                                    voted_shelf_counts[sid] = {}
+                                    for sku in all_skus:
+                                        counts_across_frames = [
+                                            fsc.get(sid, {}).get(sku, 0)
+                                            for fsc in detection_history
+                                        ]
+                                        # Use median (robust to outliers)
+                                        voted_shelf_counts[sid][sku] = int(
+                                            sorted(counts_across_frames)[len(counts_across_frames) // 2]
+                                        )
+
+                            # ── PLANOGRAM COMPARISON (uses voted counts when available) ─
                             plan_shelves = planogram.get("shelves", [])
                             all_alerts = []
                             shelf_compliance = {}
@@ -1104,7 +2142,11 @@ with tab3:
 
                                 from collections import Counter
                                 expected_counts = Counter(p["sku"] for p in expected_products if p["sku"] != "UNKNOWN")
-                                detected_counts = Counter(d.get("product_sku", "UNKNOWN") for d in detected_on_shelf if d.get("product_sku") != "UNKNOWN")
+                                # Use voted counts if available (multi-frame), else raw
+                                if voted_shelf_counts and shelf_id in voted_shelf_counts:
+                                    detected_counts = Counter(voted_shelf_counts[shelf_id])
+                                else:
+                                    detected_counts = Counter(d.get("product_sku", "UNKNOWN") for d in detected_on_shelf if d.get("product_sku") != "UNKNOWN")
 
                                 issues = []
                                 shelf_expected = len(expected_products)
@@ -1235,7 +2277,8 @@ with tab3:
 
                             # Annotated frame
                             annotated = draw_annotated_image(monitor_image, detections)
-                            frame_display.image(annotated, caption=f"🔴 LIVE — Scan #{scan_count} at {current_time.strftime('%H:%M:%S')} | {len(detections)} products detected", width='stretch')
+                            vote_status = f"🗳️ Voted ({len(detection_history)}/{VOTE_BUFFER_SIZE} frames)" if len(detection_history) >= 2 else "⏳ Warming up..."
+                            frame_display.image(annotated, caption=f"🔴 LIVE — Scan #{scan_count} at {current_time.strftime('%H:%M:%S')} | {len(detections)} products | {vote_status}", width='stretch')
 
                             # Compliance report
                             with compliance_report.container():
