@@ -410,37 +410,67 @@ def get_embedding(model, image):
 
 
 def get_robust_embedding(model, image, return_views=False):
-    """Generate robust embedding by averaging 5 augmented views of 1 photo.
+    """Generate robust embedding by averaging 10 augmented views of 1 photo.
     
-    Augmentations: original + center-crop + left-crop + right-crop + brightness
-    Takes ~3 seconds extra, gives much better matching accuracy.
+    Invariance types covered:
+      - Translational: center, left, right, top, bottom crops
+      - Scale: 90% and 110% zoom
+      - Rotational: ±5° slight rotation
+      - Photometric: brightness, contrast, saturation
+      - Mirror: horizontal flip
     
     If return_views=True, returns (embedding, views_list, view_names)
     """
     import torch
     from torchvision import transforms
-    from PIL import ImageEnhance
+    from PIL import ImageEnhance, ImageOps
     
     img = image.convert("RGB")
     w, h = img.size
     
-    # Generate 5 views from 1 photo
-    view_names = ["Original", "Center 80%", "Left Crop", "Right Crop", "Bright +20%"]
-    views = [img]  # Original
+    view_names = []
+    views = []
     
-    # Center crop (80%)
-    margin_w, margin_h = int(w * 0.1), int(h * 0.1)
-    views.append(img.crop((margin_w, margin_h, w - margin_w, h - margin_h)))
+    # 1. Original
+    views.append(img)
+    view_names.append("Original")
     
-    # Left-shifted crop
-    views.append(img.crop((0, margin_h, int(w * 0.85), h - margin_h)))
+    # 2. Horizontal flip (mirror invariance)
+    views.append(ImageOps.mirror(img))
+    view_names.append("H-Flip")
     
-    # Right-shifted crop
-    views.append(img.crop((int(w * 0.15), margin_h, w, h - margin_h)))
+    # 3. Center crop 80% (scale invariance - zoom in)
+    mw, mh = int(w * 0.1), int(h * 0.1)
+    views.append(img.crop((mw, mh, w - mw, h - mh)))
+    view_names.append("Center 80%")
     
-    # Brightness variation
-    enhancer = ImageEnhance.Brightness(img)
-    views.append(enhancer.enhance(1.2))
+    # 4. Left-shifted crop (translational invariance)
+    views.append(img.crop((0, mh, int(w * 0.85), h - mh)))
+    view_names.append("Left Crop")
+    
+    # 5. Right-shifted crop (translational invariance)
+    views.append(img.crop((int(w * 0.15), mh, w, h - mh)))
+    view_names.append("Right Crop")
+    
+    # 6. Top crop (translational invariance)
+    views.append(img.crop((mw, 0, w - mw, int(h * 0.85))))
+    view_names.append("Top Crop")
+    
+    # 7. Slight rotation +5° (rotational invariance)
+    views.append(img.rotate(-5, expand=False, fillcolor=(128, 128, 128)))
+    view_names.append("Rotate +5°")
+    
+    # 8. Slight rotation -5° (rotational invariance)
+    views.append(img.rotate(5, expand=False, fillcolor=(128, 128, 128)))
+    view_names.append("Rotate -5°")
+    
+    # 9. Brightness +20% (photometric invariance)
+    views.append(ImageEnhance.Brightness(img).enhance(1.2))
+    view_names.append("Bright +20%")
+    
+    # 10. Contrast +20% (photometric invariance)
+    views.append(ImageEnhance.Contrast(img).enhance(1.2))
+    view_names.append("Contrast +20%")
     
     # Compute embeddings for all views and average
     embeddings = []
@@ -1377,19 +1407,26 @@ with tab1:
                             img_path = REF_IMG_DIR / img_filename
                             reg_img.save(str(img_path), "JPEG", quality=90)
 
-                            # Generate robust DINOv2 embedding (5 views averaged)
+                            # Generate robust DINOv2 embedding (10 views averaged)
                             dinov2 = load_dinov2()
                             embedding = None
                             if dinov2:
                                 result = get_robust_embedding(dinov2, reg_img, return_views=True)
                                 emb_vec, aug_views, view_names = result
                                 embedding = emb_vec.tolist()
-                                # Show the 5 augmented views
-                                st.markdown("**🔄 5 Augmented Views (used for robust embedding):**")
-                                view_cols = st.columns(5)
-                                for i, (v, vname) in enumerate(zip(aug_views, view_names)):
-                                    with view_cols[i]:
-                                        st.image(v, caption=vname, width="content")
+                                # Show the 10 augmented views in 2 rows
+                                st.markdown("**🔄 10 Augmented Views (robust embedding):**")
+                                # Row 1: views 1-5
+                                row1 = st.columns(5)
+                                for i in range(min(5, len(aug_views))):
+                                    with row1[i]:
+                                        st.image(aug_views[i], caption=view_names[i], width="content")
+                                # Row 2: views 6-10
+                                if len(aug_views) > 5:
+                                    row2 = st.columns(5)
+                                    for i in range(5, min(10, len(aug_views))):
+                                        with row2[i - 5]:
+                                            st.image(aug_views[i], caption=view_names[i], width="content")
 
                             # Save to SQLite database
                             add_product(
@@ -1579,68 +1616,72 @@ with tab1:
     if catalog["products"]:
         st.markdown("##### 🗄️ Registered Products")
 
-        # Table header
-        header_cols = st.columns([1, 2, 2, 2, 1, 1])
-        header_cols[0].markdown("**Image**")
-        header_cols[1].markdown("**Product Name**")
-        header_cols[2].markdown("**SKU**")
-        header_cols[3].markdown("**Category**")
-        header_cols[4].markdown("**Price**")
-        header_cols[5].markdown("**Action**")
-        st.markdown("---")
+        # Select all / Clear all / Delete buttons
+        btn_cols = st.columns([1, 1, 1, 2])
+        with btn_cols[0]:
+            select_all = st.button("☑️ Select All")
+        with btn_cols[1]:
+            clear_sel = st.button("⬜ Clear Selection")
+        with btn_cols[2]:
+            if st.button("🗑️ Clear ALL", type="secondary"):
+                clear_all_products()
+                for f in REF_IMG_DIR.glob("*.jpg"):
+                    f.unlink()
+                st.rerun()
 
-        # Product rows
+        # Initialize selection state
+        if "del_selected" not in st.session_state:
+            st.session_state["del_selected"] = set()
+        if select_all:
+            st.session_state["del_selected"] = {p["sku"] for p in catalog["products"]}
+        if clear_sel:
+            st.session_state["del_selected"] = set()
+
+        # Product list with checkboxes + images
         for product in catalog["products"]:
-            row_cols = st.columns([1, 2, 2, 2, 1, 1])
-
-            # Image
-            with row_cols[0]:
+            sku = product["sku"]
+            checked = sku in st.session_state.get("del_selected", set())
+            cols = st.columns([0.3, 0.5, 2, 1.5, 1])
+            with cols[0]:
+                is_checked = st.checkbox("", value=checked, key=f"chk_{sku}", label_visibility="collapsed")
+                if is_checked:
+                    st.session_state["del_selected"].add(sku)
+                elif sku in st.session_state.get("del_selected", set()):
+                    st.session_state["del_selected"].discard(sku)
+            with cols[1]:
                 img_file = product.get("image_path", product.get("image", ""))
                 if img_file:
                     img_path = REF_IMG_DIR / img_file
                     if img_path.is_file():
-                        st.image(str(img_path), width=80)
+                        st.image(str(img_path), width=60)
                     else:
-                        st.markdown("🖼️ *No image*")
+                        st.caption("🖼️")
                 else:
-                    st.markdown("🖼️ *No image*")
+                    st.caption("🖼️")
+            with cols[2]:
+                emb_icon = "✅" if product.get("embedding") else "❌"
+                st.markdown(f"**{product['name']}** {emb_icon}")
+            with cols[3]:
+                st.caption(f"{sku} · {product.get('category', 'Other')}")
+            with cols[4]:
+                st.caption(f"₹{product.get('price', 0):.0f}")
 
-            # Name
-            with row_cols[1]:
-                st.markdown(f"**{product['name']}**")
-                has_emb = "✅ Embedded" if product.get("embedding") else "❌ No embedding"
-                st.caption(has_emb)
-
-            # SKU
-            with row_cols[2]:
-                st.code(product["sku"], language=None)
-
-            # Category
-            with row_cols[3]:
-                st.markdown(product.get("category", "Other"))
-
-            # Price
-            with row_cols[4]:
-                st.markdown(f"₹{product.get('price', 0):.0f}")
-
-            # Delete
-            with row_cols[5]:
-                if st.button("🗑️", key=f"del_{product['sku']}", help=f"Delete {product['name']}"):
-                    delete_product(product["sku"])
-                    # Remove image file
-                    if img_file:
-                        img_p = REF_IMG_DIR / img_file
-                        if img_p.is_file():
-                            img_p.unlink()
-                    st.rerun()
-
-        st.markdown("---")
-        # Bulk delete
-        if st.button("🗑️ Clear All Products", type="secondary"):
-            clear_all_products()
-            for f in REF_IMG_DIR.glob("*.jpg"):
-                f.unlink()
-            st.rerun()
+        # Delete selected button
+        selected = st.session_state.get("del_selected", set())
+        if selected:
+            st.markdown("---")
+            if st.button(f"🗑️ Delete {len(selected)} Selected Product(s)", type="primary"):
+                for sku in selected:
+                    prod = next((p for p in catalog["products"] if p["sku"] == sku), None)
+                    if prod:
+                        img_file = prod.get("image_path", "")
+                        if img_file:
+                            img_p = REF_IMG_DIR / img_file
+                            if img_p.is_file():
+                                img_p.unlink()
+                    delete_product(sku)
+                st.session_state["del_selected"] = set()
+                st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════
