@@ -1,0 +1,849 @@
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 22.0 MB/s eta 0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23.8/23.8 MB 76.3 MB/s eta 0:00:00
+PyTorch: 2.10.0+cu128
+CUDA available: True
+GPU: Tesla T4
+VRAM: 15.6 GB
+Mode: Kaggle
+Output: /kaggle/working/shelfmind_models
+Figures: /kaggle/working/shelfmind_models/visualizations
+Creating new Ultralytics Settings v0.0.6 file ✅ 
+View Ultralytics Settings with 'yolo settings' or at '/root/.config/Ultralytics/settings.json'
+Update Settings with 'yolo settings key=value', i.e. 'yolo settings runs_dir=path/to/dir'. For help see https://docs.ultralytics.com/quickstart/#ultralytics-settings.
+
+============================================================
+  PART 1: YOLO TRAINING ON SKU-110K
+  (Manual download + disk cleanup for Kaggle)
+============================================================
+  Downloading + extracting SKU-110K (streaming, ~8 min)...
+  (tar.gz streams directly to extraction — no double disk usage)
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 11.3G  100 11.3G    0     0  77.3M      0  0:02:30  0:02:30 --:--:-- 73.1M
+  [OK] SKU-110K extracted!
+/dev/loop1       20G   13G  7.4G  63% /kaggle/working
+  Converting train annotations...
+    train: 8219 images, 1208482 bboxes
+  Converting val annotations...
+    val: 588 images, 90968 bboxes
+  Converting test annotations...
+    test: 2936 images, 431546 bboxes
+  [OK] YAML saved: /kaggle/working/datasets/SKU-110K/dataset.yaml
+
+Starting YOLO26s training (NMS-free, optimized for dense shelf detection)...
+Downloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26s.pt to 'yolo26s.pt': 100% ━━━━━━━━━━━━ 19.5MB 137.6MB/s 0.1s
+Ultralytics 8.4.37 🚀 Python-3.12.12 torch-2.10.0+cu128 CUDA:0 (Tesla T4, 14913MiB)
+engine/trainer: agnostic_nms=False, amp=True, angle=1.0, augment=True, auto_augment=randaugment, batch=16, bgr=0.0, box=7.5, cache=False, cfg=None, classes=None, close_mosaic=10, cls=0.5, cls_pw=0.0, compile=False, conf=None, copy_paste=0.0, copy_paste_mode=flip, cos_lr=False, cutmix=0.0, data=/kaggle/working/datasets/SKU-110K/dataset.yaml, degrees=3.0, deterministic=True, device=None, dfl=1.5, dnn=False, dropout=0.0, dynamic=False, embed=None, end2end=None, epochs=30, erasing=0.4, exist_ok=True, fliplr=0.5, flipud=0.0, format=torchscript, fraction=1.0, freeze=None, half=False, hsv_h=0.015, hsv_s=0.7, hsv_v=0.4, imgsz=640, int8=False, iou=0.7, keras=False, kobj=1.0, line_width=None, lr0=0.001, lrf=0.01, mask_ratio=4, max_det=300, mixup=0.1, mode=train, model=yolo26s.pt, momentum=0.937, mosaic=1.0, multi_scale=0.0, name=yolo_sku110k, nbs=64, nms=False, opset=None, optimize=False, optimizer=auto, overlap_mask=True, patience=10, perspective=0.0, plots=True, pose=12.0, pretrained=True, profile=False, project=/kaggle/working/shelfmind_models, rect=False, resume=False, retina_masks=False, rle=1.0, save=True, save_conf=False, save_crop=False, save_dir=/kaggle/working/shelfmind_models/yolo_sku110k, save_frames=False, save_json=False, save_period=-1, save_txt=False, scale=0.3, seed=0, shear=0.0, show=False, show_boxes=True, show_conf=True, show_labels=True, simplify=True, single_cls=False, source=None, split=val, stream_buffer=False, task=detect, time=None, tracker=botsort.yaml, translate=0.1, val=True, verbose=True, vid_stride=1, visualize=False, warmup_bias_lr=0.1, warmup_epochs=3.0, warmup_momentum=0.8, weight_decay=0.0005, workers=8, workspace=None
+Downloading https://ultralytics.com/assets/Arial.ttf to '/root/.config/Ultralytics/Arial.ttf': 100% ━━━━━━━━━━━━ 755.1KB 16.3MB/s 0.0s
+Overriding model.yaml nc=80 with nc=1
+
+                   from  n    params  module                                       arguments                     
+  0                  -1  1       928  ultralytics.nn.modules.conv.Conv             [3, 32, 3, 2]                 
+  1                  -1  1     18560  ultralytics.nn.modules.conv.Conv             [32, 64, 3, 2]                
+  2                  -1  1     26080  ultralytics.nn.modules.block.C3k2            [64, 128, 1, False, 0.25]     
+  3                  -1  1    147712  ultralytics.nn.modules.conv.Conv             [128, 128, 3, 2]              
+  4                  -1  1    103360  ultralytics.nn.modules.block.C3k2            [128, 256, 1, False, 0.25]    
+  5                  -1  1    590336  ultralytics.nn.modules.conv.Conv             [256, 256, 3, 2]              
+  6                  -1  1    346112  ultralytics.nn.modules.block.C3k2            [256, 256, 1, True]           
+  7                  -1  1   1180672  ultralytics.nn.modules.conv.Conv             [256, 512, 3, 2]              
+  8                  -1  1   1380352  ultralytics.nn.modules.block.C3k2            [512, 512, 1, True]           
+  9                  -1  1    656896  ultralytics.nn.modules.block.SPPF            [512, 512, 5, 3, True]        
+ 10                  -1  1    990976  ultralytics.nn.modules.block.C2PSA           [512, 512, 1]                 
+ 11                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          
+ 12             [-1, 6]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 13                  -1  1    477184  ultralytics.nn.modules.block.C3k2            [768, 256, 1, True]           
+ 14                  -1  1         0  torch.nn.modules.upsampling.Upsample         [None, 2, 'nearest']          
+ 15             [-1, 4]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 16                  -1  1    136192  ultralytics.nn.modules.block.C3k2            [512, 128, 1, True]           
+ 17                  -1  1    147712  ultralytics.nn.modules.conv.Conv             [128, 128, 3, 2]              
+ 18            [-1, 13]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 19                  -1  1    378880  ultralytics.nn.modules.block.C3k2            [384, 256, 1, True]           
+ 20                  -1  1    590336  ultralytics.nn.modules.conv.Conv             [256, 256, 3, 2]              
+ 21            [-1, 10]  1         0  ultralytics.nn.modules.conv.Concat           [1]                           
+ 22                  -1  1   1843712  ultralytics.nn.modules.block.C3k2            [768, 512, 1, True, 0.5, True]
+ 23        [16, 19, 22]  1    932638  ultralytics.nn.modules.head.Detect           [1, 1, True, [128, 256, 512]] 
+YOLO26s summary: 260 layers, 9,948,638 parameters, 9,948,638 gradients, 22.5 GFLOPs
+
+Transferred 696/708 items from pretrained weights
+AMP: running Automatic Mixed Precision (AMP) checks...
+Downloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt to 'yolo26n.pt': 100% ━━━━━━━━━━━━ 5.3MB 65.6MB/s 0.1s
+AMP: checks passed ✅
+train: Fast image access ✅ (ping: 0.0±0.0 ms, read: 3633.9±1972.1 MB/s, size: 976.4 KB)
+train: Scanning /kaggle/working/datasets/SKU-110K/labels... 8216 images, 0 backgrounds, 3 corrupt: 100% ━━━━━━━━━━━━ 8219/8219 226.1it/s 36.4s
+train: /kaggle/working/datasets/SKU-110K/images/train_1025.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1046.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1051.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1097.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1107.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1134.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1158.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1168.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1176.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1178.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1200.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1214.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1250.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1264.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1282.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1311.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1327.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1330.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1331.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1350.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_136.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1362.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_137.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1375.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1379.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1392.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1403.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1405.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1415.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1441.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1453.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_146.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1489.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1499.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1503.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1505.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1538.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1571.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1580.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1589.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1625.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_164.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1645.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1662.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1677.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1688.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1699.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1718.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1744.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1762.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1775.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1797.jpg: 3 duplicate labels removed
+train: /kaggle/working/datasets/SKU-110K/images/train_180.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1822.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1838.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1852.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1883.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1887.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1943.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1957.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1959.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1973.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1981.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_1984.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2005.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2021.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2025.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2053.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2107.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2111.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2113.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2128.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2167.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2171.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2176.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2177.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2207.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2240.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2250.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2251.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2259.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2279.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2284.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2287.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2313.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2360.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2362.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2371.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2404.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2435.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_244.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2442.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2447.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2456.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_246.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2475.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2480.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2485.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2514.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2518.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_255.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2551.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2556.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2561.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2573.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2576.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2603.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2651.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2660.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2688.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2702.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2708.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_271.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_274.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2751.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2756.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2767.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2790.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2796.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2804.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2832.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2836.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2846.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2858.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2859.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2862.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2873.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2903.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_292.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2946.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_295.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2951.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2953.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2954.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2979.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2993.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_2994.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3024.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_304.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3050.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3053.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3059.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3081.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3089.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3093.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3104.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3121.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3129.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3143.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3155.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_316.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3162.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_317.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3175.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_318.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3189.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3201.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3211.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3219.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3221.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3224.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3227.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3237.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3241.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3255.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3325.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3335.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3366.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_340.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_342.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3454.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3489.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_349.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3503.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3510.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3556.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_357.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3579.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_358.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3649.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3654.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3660.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3663.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_367.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3670.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3673.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3674.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3678.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3687.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3688.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3689.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3698.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_370.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3707.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3733.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3745.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3764.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3767.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3772.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3776.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3782.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3811.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3845.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3857.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_386.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_390.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3919.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3932.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3962.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3967.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_3977.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4008.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4010.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_402.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4024.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4035.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4050.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4058.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4080.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4085.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_41.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_412.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4167.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4174.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4183.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4200.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_422.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4222.jpg: ignoring corrupt image/label: image file is truncated (23 bytes not processed)
+train: /kaggle/working/datasets/SKU-110K/images/train_4244.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4261.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4291.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4299.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4353.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_436.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4373.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4380.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_44.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4404.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4425.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4426.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4450.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4462.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4464.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4483.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4504.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4524.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4527.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4552.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4579.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4634.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4635.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4643.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4673.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_470.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4701.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4708.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4744.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4746.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4748.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4763.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4764.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4824.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4842.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4855.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4860.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_49.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4914.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4922.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4930.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4958.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_4962.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_498.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5019.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5051.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5080.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5091.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5095.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5101.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5105.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5125.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5132.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5141.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5142.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5143.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5156.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_516.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5167.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5179.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5201.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5223.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5231.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5241.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5267.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5319.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5363.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_537.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5420.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5442.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5446.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5464.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5476.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5499.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5504.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5505.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5506.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5531.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5577.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5595.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5605.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5618.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5636.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5644.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5645.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5653.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5693.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5716.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5720.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5737.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5754.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5755.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5756.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5775.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5804.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5810.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5843.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5866.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5871.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5876.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_588.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5900.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5902.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5932.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5934.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5957.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_599.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_5998.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6002.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6026.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6031.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_605.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6050.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6077.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6099.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_610.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6105.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6115.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_616.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6172.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6207.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6210.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6211.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6230.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_625.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6260.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6261.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6263.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6294.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6301.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6305.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6312.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6332.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6337.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6354.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6373.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_638.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6405.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6417.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6422.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6454.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6502.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6508.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6528.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6541.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6554.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6563.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6581.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6584.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6590.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6591.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6605.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_664.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6666.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_667.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6678.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6689.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6692.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6695.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6699.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_671.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6722.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6734.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6784.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_679.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6790.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6797.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6807.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6809.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6823.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6830.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6839.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_686.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6869.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6892.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6899.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6909.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6910.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6914.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6917.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6926.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6971.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_6998.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7018.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_703.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7105.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7140.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7141.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7143.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7147.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_715.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7163.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7204.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7217.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7266.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7281.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7322.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_733.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7340.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7358.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7392.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7393.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7407.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7456.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7501.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7502.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7511.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7516.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7550.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_756.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7572.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7594.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7603.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7629.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7631.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7636.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7639.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7664.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7697.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7709.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7724.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7742.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7769.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7776.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7801.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7829.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7835.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7840.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7858.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7870.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7876.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7877.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7891.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7899.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7901.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7907.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_791.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7910.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7949.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7953.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7959.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7978.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7981.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_7994.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8034.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8035.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8037.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8058.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8066.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8078.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8093.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8108.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8111.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8136.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_814.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8154.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8164.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8200.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_8212.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_836.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_882.jpg: ignoring corrupt image/label: image file is truncated (3 bytes not processed)
+train: /kaggle/working/datasets/SKU-110K/images/train_899.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_919.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_924.jpg: ignoring corrupt image/label: image file is truncated (10 bytes not processed)
+train: /kaggle/working/datasets/SKU-110K/images/train_934.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_939.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_950.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_958.jpg: corrupt JPEG restored and saved
+train: /kaggle/working/datasets/SKU-110K/images/train_969.jpg: corrupt JPEG restored and saved
+train: New cache created: /kaggle/working/datasets/SKU-110K/labels.cache
+albumentations: Blur(p=0.01, blur_limit=(3, 7)), MedianBlur(p=0.01, blur_limit=(3, 7)), ToGray(p=0.01, method='weighted_average', num_output_channels=3), CLAHE(p=0.01, clip_limit=(1.0, 4.0), tile_grid_size=(8, 8))
+val: Fast image access ✅ (ping: 0.0±0.0 ms, read: 643.2±266.3 MB/s, size: 1182.0 KB)
+val: Scanning /kaggle/working/datasets/SKU-110K/labels... 588 images, 0 backgrounds, 0 corrupt: 100% ━━━━━━━━━━━━ 588/588 138.1it/s 4.3s
+val: /kaggle/working/datasets/SKU-110K/images/val_0.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_115.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_127.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_166.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_172.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_190.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_2.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_209.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_214.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_223.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_280.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_290.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_292.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_295.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_324.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_332.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_334.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_394.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_406.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_413.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_47.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_471.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_49.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_510.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_525.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_547.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_582.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_72.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_74.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_82.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_85.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_89.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_95.jpg: corrupt JPEG restored and saved
+val: New cache created: /kaggle/working/datasets/SKU-110K/labels.cache
+optimizer: 'optimizer=auto' found, ignoring 'lr0=0.001' and 'momentum=0.937' and determining best 'optimizer', 'lr0' and 'momentum' automatically... 
+optimizer: AdamW(lr=0.002, momentum=0.9) with parameter groups 114 weight(decay=0.0), 126 weight(decay=0.0005), 126 bias(decay=0.0)
+Corrupt JPEG data: 786 extraneous bytes before marker 0xd9
+Plotting labels to /kaggle/working/shelfmind_models/yolo_sku110k/labels.jpg... 
+Corrupt JPEG data: 305 extraneous bytes before marker 0xd9
+Image sizes 640 train, 640 val
+Using 2 dataloader workers
+Logging results to /kaggle/working/shelfmind_models/yolo_sku110k
+Starting training for 30 epochs...
+
+      Epoch    GPU_mem   box_loss   cls_loss   dfl_loss  Instances       Size
+Corrupt JPEG data: 366 extraneous bytes before marker 0xd9
+       1/30      9.08G      2.551      3.897    0.00774       4108        640: 2% ──────────── 12/514 1.6it/s 20.6s<5:10
+Corrupt JPEG data: premature end of data segment
+       1/30      10.5G      2.556       3.84    0.00772       4026        640: 3% ──────────── 17/514 1.7it/s 23.8s<5:01
+Corrupt JPEG data: premature end of data segment
+
+
+  30/30      9.34G      1.346     0.5291   0.003153       1134        640: 100% ━━━━━━━━━━━━ 514/514 2.0it/s 4:17
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 53% ━━━━━━────── 10/19 1.8it/s 6.6s<5.0s
+Corrupt JPEG data: premature end of data segment
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 84% ━━━━━━━━━━── 16/19 1.7it/s 10.0s<1.7s
+Corrupt JPEG data: 786 extraneous bytes before marker 0xd9
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 95% ━━━━━━━━━━━─ 18/19 1.7it/s 11.2s<0.6s
+Corrupt JPEG data: 305 extraneous bytes before marker 0xd9
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100% ━━━━━━━━━━━━ 19/19 1.7it/s 11.5s
+                   all        588      90968      0.907      0.848      0.895      0.559
+
+30 epochs completed in 2.591 hours.
+Optimizer stripped from /kaggle/working/shelfmind_models/yolo_sku110k/weights/last.pt, 20.3MB
+Optimizer stripped from /kaggle/working/shelfmind_models/yolo_sku110k/weights/best.pt, 20.3MB
+
+Validating /kaggle/working/shelfmind_models/yolo_sku110k/weights/best.pt...
+Ultralytics 8.4.37 🚀 Python-3.12.12 torch-2.10.0+cu128 CUDA:0 (Tesla T4, 14913MiB)
+YOLO26s summary (fused): 122 layers, 9,465,567 parameters, 0 gradients, 20.5 GFLOPs
+Corrupt JPEG data: 366 extraneous bytes before marker 0xd9
+WARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 5% ╸─────────── 1/19 2.1s/it 0.6s<38.0sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 11% ━─────────── 2/19 2.7s/it 7.4s<45.2sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 16% ━╸────────── 3/19 3.2s/it 13.4s<51.1sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 21% ━━╸───────── 4/19 3.8s/it 19.9s<56.4sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 26% ━━━───────── 5/19 1.1s/it 20.3s<15.6sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 32% ━━━╸──────── 6/19 1.2it/s 20.8s<10.4sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 37% ━━━━──────── 7/19 1.5it/s 21.3s<7.9sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 42% ━━━━━─────── 8/19 1.7it/s 21.7s<6.5sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 47% ━━━━━╸────── 9/19 1.9it/s 22.2s<5.4sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 53% ━━━━━━────── 10/19 1.9it/s 22.7s<4.9sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+Corrupt JPEG data: premature end of data segment
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 58% ━━━━━━╸───── 11/19 1.7it/s 23.4s<4.6sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 63% ━━━━━━━╸──── 12/19 1.8it/s 23.9s<4.0sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 68% ━━━━━━━━──── 13/19 1.7it/s 24.6s<3.5sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 74% ━━━━━━━━╸─── 14/19 1.7it/s 25.2s<3.0sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 79% ━━━━━━━━━─── 15/19 1.7it/s 25.8s<2.4sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 84% ━━━━━━━━━━── 16/19 1.7it/s 26.4s<1.8sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 89% ━━━━━━━━━━╸─ 17/19 1.7it/s 26.9s<1.1sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+Corrupt JPEG data: 786 extraneous bytes before marker 0xd9
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 95% ━━━━━━━━━━━─ 18/19 1.7it/s 27.6s<0.6sWARNING ⚠️ Model does not support 'augment=True', reverting to single-scale prediction.
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100% ━━━━━━━━━━━━ 19/19 1.5s/it 27.9s
+Corrupt JPEG data: 305 extraneous bytes before marker 0xd9
+                   all        588      90968      0.907      0.848      0.895      0.559
+Speed: 0.2ms preprocess, 3.9ms inference, 0.0ms loss, 0.2ms postprocess per image
+Results saved to /kaggle/working/shelfmind_models/yolo_sku110k
+Corrupt JPEG data: 366 extraneous bytes before marker 0xd9
+[OK] YOLO model saved: /kaggle/working/shelfmind_models/yolo_shelf_best.pt (20.3 MB)
+
+Validating on SKU-110K val set...
+Ultralytics 8.4.37 🚀 Python-3.12.12 torch-2.10.0+cu128 CUDA:0 (Tesla T4, 14913MiB)
+YOLO26s summary (fused): 122 layers, 9,465,567 parameters, 0 gradients, 20.5 GFLOPs
+val: Fast image access ✅ (ping: 0.0±0.0 ms, read: 3483.8±322.2 MB/s, size: 1181.6 KB)
+val: Scanning /kaggle/working/datasets/SKU-110K/labels.cache... 588 images, 0 backgrounds, 0 corrupt: 100% ━━━━━━━━━━━━ 588/588 246.6Mit/s 0.0s
+val: /kaggle/working/datasets/SKU-110K/images/val_0.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_115.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_127.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_166.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_172.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_190.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_2.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_209.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_214.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_223.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_280.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_290.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_292.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_295.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_324.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_332.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_334.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_394.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_406.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_413.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_47.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_471.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_49.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_510.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_525.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_547.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_582.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_72.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_74.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_82.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_85.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_89.jpg: corrupt JPEG restored and saved
+val: /kaggle/working/datasets/SKU-110K/images/val_95.jpg: corrupt JPEG restored and saved
+Corrupt JPEG data: 786 extraneous bytes before marker 0xd9
+Corrupt JPEG data: 305 extraneous bytes before marker 0xd9
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 3% ──────────── 1/37 4.4s/it 1.3s<2:40
+Corrupt JPEG data: 366 extraneous bytes before marker 0xd9
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 78% ━━━━━━━━━─── 29/37 2.8it/s 27.6s<2.8s
+Corrupt JPEG data: premature end of data segment
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 97% ━━━━━━━━━━━╸ 36/37 1.9it/s 32.1s<0.5s
+Corrupt JPEG data: 786 extraneous bytes before marker 0xd9
+                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100% ━━━━━━━━━━━━ 37/37 1.1it/s 32.4s
+Corrupt JPEG data: 305 extraneous bytes before marker 0xd9
+                   all        588      90968      0.907      0.848      0.895      0.559
+Speed: 1.0ms preprocess, 8.2ms inference, 0.0ms loss, 0.2ms postprocess per image
+Results saved to /kaggle/working/runs/detect/val
+
+--- SKU-110K Validation Results ---
+  mAP50:     0.8955
+  mAP50-95:  0.5589
+  Precision:  0.9070
+  Recall:     0.8481
+  [OK] Training curves saved: /kaggle/working/shelfmind_models/visualizations/yolo_training_curves.png
+
+Generating detection visualizations...
+  [OK] Detection samples saved: /kaggle/working/shelfmind_models/visualizations/yolo_detection_samples.png
+  [OK] Metrics card saved: /kaggle/working/shelfmind_models/visualizations/yolo_metrics_card.png
+
+============================================================
+  PART 2: BUILDING DINOv2 SKU INDEX
+============================================================
+Downloading: "https://github.com/facebookresearch/dinov2/zipball/main" to /root/.cache/torch/hub/main.zip
+Downloading: "https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth" to /root/.cache/torch/hub/checkpoints/dinov2_vits14_pretrain.pth
+100%|██████████| 84.2M/84.2M [00:00<00:00, 279MB/s]
+DINOv2 loaded on cuda
+Looking for SKU-110K images...
+  Found 11743 images in /kaggle/working/datasets/SKU-110K/images
+Looking for Supermarket Shelves images...
+
+Total images available: 11743 (SKU-110K: 11743, Shelves: 0)
+  Processing 200 images for crop extraction...
+    [0/200] Processing...
+    [50/200] Processing...
+    [100/200] Processing...
+Corrupt JPEG data: premature end of data segment
+Corrupt JPEG data: 520 extraneous bytes before marker 0xd9
+    [150/200] Processing...
+Corrupt JPEG data: 241 extraneous bytes before marker 0xd9
+Corrupt JPEG data: 784 extraneous bytes before marker 0xd9
+  Extracted 2987 product crops
+
+Extracting DINOv2 embeddings...
+    Batch 1/94
+    Batch 11/94
+    Batch 21/94
+    Batch 31/94
+    Batch 41/94
+    Batch 51/94
+    Batch 61/94
+    Batch 71/94
+    Batch 81/94
+    Batch 91/94
+Embeddings shape: (2987, 384)
+
+[OK] FAISS index saved: /kaggle/working/shelfmind_models/sku_faiss_index.bin
+     2987 vectors, 384-dim
+[OK] Metadata saved: /kaggle/working/shelfmind_models/sku_metadata.json
+[OK] Sample crops saved: /kaggle/working/shelfmind_models/sample_crops
+  [OK] Crop grid saved: /kaggle/working/shelfmind_models/visualizations/dinov2_crop_grid.png
+  Running t-SNE on 1000 embeddings...
+  [OK] t-SNE saved: /kaggle/working/shelfmind_models/visualizations/dinov2_tsne.png
+  [OK] NN demo saved: /kaggle/working/shelfmind_models/visualizations/faiss_nn_demo.png
+
+============================================================
+  PART 3: TRAINING DEMAND FORECASTING MODEL
+============================================================
+Loading M5 from: /kaggle/input/competitions/m5-forecasting-accuracy
+  Calendar: (1969, 14)
+  Prices: (6841121, 4)
+  Loading sales data...
+  Sales: (30490, 1919)
+  Converting 500 items x 365 days...
+  Computing lag features...
+  Final dataset: (13000, 42)
+Train: 11500 rows (2015-05-25 to 2016-02-17)
+Test:  1500 rows (2016-03-17 to 2016-03-27)
+
+Training LightGBM...
+Training until validation scores don't improve for 30 rounds
+[50]	valid_0's l2: 97.9493
+[100]	valid_0's l2: 93.8756
+[150]	valid_0's l2: 93.4675
+[200]	valid_0's l2: 93.5462
+Early stopping, best iteration is:
+[172]	valid_0's l2: 93.2387
+
+--- Forecast Results ---
+  MAE:  6.203
+  RMSE: 9.656
+  MAPE: 112.0%
+
+Top 10 Features:
+              feature  importance
+ sales_rolling_mean_7         633
+         sales_lag_14         512
+  sales_rolling_std_7         458
+ sales_rolling_std_28         446
+         sales_lag_28         426
+ sales_rolling_std_14         423
+           sell_price         400
+          sales_lag_7         395
+sales_rolling_mean_28         384
+          day_of_week         379
+
+[OK] LightGBM saved: /kaggle/working/shelfmind_models/lgbm_forecast_model.pkl (0.6 MB)
+  [OK] Feature importance saved: /kaggle/working/shelfmind_models/visualizations/lgbm_feature_importance.png
+  [OK] Predictions plot saved: /kaggle/working/shelfmind_models/visualizations/lgbm_predictions.png
+  [OK] Forecast timeline saved: /kaggle/working/shelfmind_models/visualizations/lgbm_forecast_timeline.png
+
+============================================================
+   SHELFMIND AI - ALL TRAINING COMPLETE!
+============================================================
+
+Output directory: /kaggle/working/shelfmind_models
+
+  [OK]      yolo_shelf_best.pt                    20.3 MB  -  Product Detection (YOLO26s trained on SKU-110K — NMS-free)
+  [OK]      sku_faiss_index.bin                    4.6 MB  -  SKU Matching (DINOv2 + FAISS)
+  [OK]      sku_metadata.json                      0.5 MB  -  SKU Crop Metadata
+  [OK]      lgbm_forecast_model.pkl                0.6 MB  -  Demand Forecasting (LightGBM on M5)
+
+  Total: 25.9 MB
+
+  [OK] All-in-one zip: /kaggle/working/shelfmind_models/shelfmind_models.zip (35.5 MB)
+
+============================================================
+  NEXT STEPS:
+  1. Click 'Save Version' to run the notebook
+  2. Go to Output tab -> download shelfmind_models.zip
+  3. Extract to: Smart Retail Shelf Intelligence/models/
+  4. We'll build the Streamlit dashboard on your PC!
+============================================================
