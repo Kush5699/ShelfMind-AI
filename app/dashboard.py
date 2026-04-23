@@ -382,8 +382,36 @@ def load_yolo():
         return None
 
 @st.cache_resource
+def load_rfdetr():
+    """Load fine-tuned RF-DETR model for product detection (PyTorch Lightning checkpoint)."""
+    rfdetr_path = ROOT / "shelfmind_models_lightning" / "shelfmind_output_rfdetr_shelf_best.pt"
+    if not rfdetr_path.exists():
+        print(f"[WARNING] RF-DETR model not found at {rfdetr_path}")
+        return None
+    try:
+        from rfdetr import RFDETRBase
+        model = RFDETRBase(pretrain_weights=str(rfdetr_path))
+        print(f"[OK] RF-DETR loaded ({rfdetr_path.stat().st_size/1e6:.1f} MB)")
+        return model
+    except TypeError:
+        try:
+            from rfdetr import RFDETRBase
+            model = RFDETRBase(checkpoint=str(rfdetr_path))
+            print(f"[OK] RF-DETR loaded ({rfdetr_path.stat().st_size/1e6:.1f} MB)")
+            return model
+        except Exception as e:
+            print(f"[ERROR] RF-DETR load failed: {e}")
+            return None
+    except ImportError:
+        print("[ERROR] rfdetr package not installed")
+        return None
+    except Exception as e:
+        print(f"[ERROR] RF-DETR load failed: {e}")
+        return None
+
+@st.cache_resource
 def load_dinov2():
-    """Load DINOv2 for product embedding."""
+    """Load pretrained DINOv2 for product embedding."""
     try:
         import torch
         model = torch.hub.load("facebookresearch/dinov2", "dinov2_vits14", pretrained=True)
@@ -394,10 +422,66 @@ def load_dinov2():
         st.error(f"DINOv2 load failed: {e}")
         return None
 
-def get_embedding(model, image):
-    """Get DINOv2 embedding for an image."""
+@st.cache_resource
+def load_dinov2_finetuned():
+    """Load fine-tuned DINOv2 with projector for product embedding.
+    Returns (backbone, projector) tuple.
+    """
+    import torch
+    import torch.nn as nn
+    finetuned_path = ROOT / "_output_" / "dinov2_shelf_finetuned.pth"
+    projector_path = ROOT / "_output_" / "dinov2_projector.pth"
+    try:
+        # Load base model
+        model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14", pretrained=True)
+        if finetuned_path.exists():
+            state = torch.load(str(finetuned_path), map_location="cpu", weights_only=True)
+            model.load_state_dict(state, strict=False)
+            print(f"[OK] DINOv2 fine-tuned backbone loaded ({finetuned_path.stat().st_size/1e6:.1f} MB)")
+        else:
+            print(f"[WARNING] Fine-tuned weights not found at {finetuned_path}")
+            return None
+        model = model.to("cpu")
+        model.eval()
+
+        # Build and load projector: 768 → 2048 → 2048 → 256
+        projector = None
+        if projector_path.exists():
+            projector = nn.Sequential(
+                nn.Linear(768, 2048),       # net.0
+                nn.BatchNorm1d(2048),       # net.1
+                nn.ReLU(inplace=True),      # net.2
+                nn.Linear(2048, 2048),      # net.3
+                nn.BatchNorm1d(2048),       # net.4
+                nn.ReLU(inplace=True),      # net.5
+                nn.Linear(2048, 256),       # net.6
+            )
+            proj_state = torch.load(str(projector_path), map_location="cpu", weights_only=True)
+            # Strip 'net.' prefix: checkpoint has 'net.0.weight' but Sequential expects '0.weight'
+            cleaned_state = {k.replace("net.", "", 1): v for k, v in proj_state.items()}
+            projector.load_state_dict(cleaned_state, strict=True)
+            projector = projector.to("cpu")
+            projector.eval()
+            print(f"[OK] DINOv2 projector loaded (768→256, {projector_path.stat().st_size/1e6:.1f} MB)")
+
+        return (model, projector)
+    except Exception as e:
+        print(f"[ERROR] DINOv2 fine-tuned load failed: {e}")
+        return None
+
+def get_embedding(model_or_tuple, image):
+    """Get DINOv2 embedding for an image.
+    Accepts either a plain model or a (backbone, projector) tuple from load_dinov2_finetuned.
+    """
     import torch
     from torchvision import transforms
+
+    # Unpack if tuple (fine-tuned model with projector)
+    if isinstance(model_or_tuple, tuple):
+        model, projector = model_or_tuple
+    else:
+        model, projector = model_or_tuple, None
+
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
@@ -405,25 +489,30 @@ def get_embedding(model, image):
     ])
     img_tensor = transform(image.convert("RGB")).unsqueeze(0).to("cpu")
     with torch.no_grad():
-        embedding = model(img_tensor).squeeze().numpy()
+        backbone_emb = model(img_tensor)  # (1, 768) or (1, 384)
+        if projector is not None:
+            embedding = projector(backbone_emb).squeeze().numpy()  # (256,)
+        else:
+            embedding = backbone_emb.squeeze().numpy()
     return embedding / np.linalg.norm(embedding)  # L2 normalize
 
 
 def get_robust_embedding(model, image, return_views=False):
-    """Generate robust embedding by averaging 10 augmented views of 1 photo.
+    """Generate robust embedding by averaging 15 augmented views of 1 photo.
     
     Invariance types covered:
       - Translational: center, left, right, top, bottom crops
-      - Scale: 90% and 110% zoom
+      - Scale: zoom in (80%) and zoom out (110%)
       - Rotational: ±5° slight rotation
-      - Photometric: brightness, contrast, saturation
+      - Photometric: brightness ±20%, contrast +20%, saturation ±20%
       - Mirror: horizontal flip
+      - Blur: Gaussian blur (simulates out-of-focus / motion blur)
     
     If return_views=True, returns (embedding, views_list, view_names)
     """
     import torch
     from torchvision import transforms
-    from PIL import ImageEnhance, ImageOps
+    from PIL import ImageEnhance, ImageOps, ImageFilter
     
     img = image.convert("RGB")
     w, h = img.size
@@ -456,21 +545,41 @@ def get_robust_embedding(model, image, return_views=False):
     views.append(img.crop((mw, 0, w - mw, int(h * 0.85))))
     view_names.append("Top Crop")
     
-    # 7. Slight rotation +5° (rotational invariance)
+    # 7. Bottom crop (translational invariance — was missing)
+    views.append(img.crop((mw, int(h * 0.15), w - mw, h)))
+    view_names.append("Bottom Crop")
+    
+    # 8. Slight rotation +5° (rotational invariance)
     views.append(img.rotate(-5, expand=False, fillcolor=(128, 128, 128)))
     view_names.append("Rotate +5°")
     
-    # 8. Slight rotation -5° (rotational invariance)
+    # 9. Slight rotation -5° (rotational invariance)
     views.append(img.rotate(5, expand=False, fillcolor=(128, 128, 128)))
     view_names.append("Rotate -5°")
     
-    # 9. Brightness +20% (photometric invariance)
+    # 10. Brightness +20% (photometric invariance)
     views.append(ImageEnhance.Brightness(img).enhance(1.2))
     view_names.append("Bright +20%")
     
-    # 10. Contrast +20% (photometric invariance)
+    # 11. Brightness -20% (shadow/dark shelf conditions)
+    views.append(ImageEnhance.Brightness(img).enhance(0.8))
+    view_names.append("Bright -20%")
+    
+    # 12. Contrast +20% (photometric invariance)
     views.append(ImageEnhance.Contrast(img).enhance(1.2))
     view_names.append("Contrast +20%")
+    
+    # 13. Saturation +20% (color temperature variation)
+    views.append(ImageEnhance.Color(img).enhance(1.2))
+    view_names.append("Saturation +20%")
+    
+    # 14. Saturation -20% (faded/washed-out lighting)
+    views.append(ImageEnhance.Color(img).enhance(0.8))
+    view_names.append("Saturation -20%")
+    
+    # 15. Gaussian blur (out-of-focus / motion blur during live scan)
+    views.append(img.filter(ImageFilter.GaussianBlur(radius=1.5)))
+    view_names.append("Blur σ=1.5")
     
     # Compute embeddings for all views and average
     embeddings = []
@@ -602,23 +711,51 @@ def auto_crop_product(image, yolo_model, conf=0.3, padding=5):
     return image, None
 
 
-def detect_all_products(image, yolo_model, conf=0.3, padding=3):
-    """Detect ALL products in a shelf image. Returns list of (crop, bbox)."""
+def detect_all_products(image, det_model, conf=0.3, padding=3):
+    """Detect ALL products in a shelf image. Supports both YOLO (ultralytics) and RF-DETR (rfdetr package).
+    Returns list of (crop, bbox, confidence).
+    """
     img_np = np.array(image)
-    results = yolo_model(img_np, conf=conf, imgsz=640, verbose=False)
-
-    crops = []
     h, w = img_np.shape[:2]
-    for r in results:
-        for box in r.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-            x1 = max(0, x1 - padding)
-            y1 = max(0, y1 - padding)
-            x2 = min(w, x2 + padding)
-            y2 = min(h, y2 + padding)
-            crop = image.crop((x1, y1, x2, y2))
-            bbox = (x1, y1, x2, y2)
-            crops.append((crop, bbox, float(box.conf[0])))
+    crops = []
+
+    # Check if this is an rfdetr model
+    is_rfdetr = 'RFDETR' in type(det_model).__name__
+
+    if is_rfdetr:
+        # RF-DETR predict returns a supervision.Detections object
+        try:
+            detections = det_model.predict(image, threshold=conf)
+            # supervision.Detections has .xyxy (ndarray) and .confidence (ndarray)
+            boxes = detections.xyxy        # shape (N, 4) — [x1,y1,x2,y2]
+            scores = detections.confidence  # shape (N,)
+            if boxes is not None and len(boxes) > 0:
+                for i in range(len(boxes)):
+                    x1, y1, x2, y2 = map(int, boxes[i])
+                    x1 = max(0, x1 - padding)
+                    y1 = max(0, y1 - padding)
+                    x2 = min(w, x2 + padding)
+                    y2 = min(h, y2 + padding)
+                    crop = image.crop((x1, y1, x2, y2))
+                    bbox = (x1, y1, x2, y2)
+                    score = float(scores[i]) if scores is not None else 1.0
+                    crops.append((crop, bbox, score))
+        except Exception as e:
+            st.error(f"RF-DETR prediction error: {e}")
+    else:
+        # Ultralytics YOLO API
+        results = det_model(img_np, conf=conf, imgsz=640, verbose=False)
+        for r in results:
+            for box in r.boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                x1 = max(0, x1 - padding)
+                y1 = max(0, y1 - padding)
+                x2 = min(w, x2 + padding)
+                y2 = min(h, y2 + padding)
+                crop = image.crop((x1, y1, x2, y2))
+                bbox = (x1, y1, x2, y2)
+                crops.append((crop, bbox, float(box.conf[0])))
+
     return crops
 
 
@@ -832,6 +969,8 @@ def cluster_unique_products(crops_data, dinov2_model, similarity_threshold=0.85)
     for cluster in sorted(clusters, key=lambda c: c["count"], reverse=True):
         idx = cluster["representative_idx"]
         crop, bbox, conf = crops_data[idx]
+        # Collect all member bboxes for labeling on annotated image
+        member_bboxes = [crops_data[m][1] for m in cluster["members"]]
         unique_products.append({
             "crop": crop,
             "bbox": bbox,
@@ -839,6 +978,7 @@ def cluster_unique_products(crops_data, dinov2_model, similarity_threshold=0.85)
             "count": cluster["count"],
             "embedding": embeddings[idx].tolist(),
             "geometry": get_crop_geometry(bbox),
+            "member_bboxes": member_bboxes,
         })
 
     return unique_products
@@ -1221,6 +1361,20 @@ with tab1:
     # ══════════════════════════════════════════════════════════════════
     if scan_mode == "📷 Single Product Scan":
         catalog = load_catalog()
+
+        # ── Model & Processing Toggles ──
+        toggle_cols = st.columns(2)
+        with toggle_cols[0]:
+            dinov2_choice = st.radio(
+                "🧠 DINOv2 Model",
+                ["Pretrained (ViT-S/14)", "Fine-tuned (ViT-B/14)"],
+                horizontal=True, key="dinov2_choice",
+                help="Compare pretrained vs fine-tuned DINOv2 embeddings"
+            )
+        with toggle_cols[1]:
+            use_rembg = st.checkbox("✂️ Use rembg (background removal)", value=True, key="use_rembg",
+                                   help="Toggle AI background removal before embedding")
+
         col_cam, col_form = st.columns([1, 1])
 
         with col_cam:
@@ -1246,6 +1400,9 @@ with tab1:
                 camera_photo = st.camera_input("Point camera at the product", key="scanner_cam")
                 if camera_photo:
                     captured_img = Image.open(camera_photo).convert("RGB")
+                    st.session_state["scanner_captured_img"] = captured_img
+                elif "scanner_captured_img" in st.session_state:
+                    captured_img = st.session_state["scanner_captured_img"]
             else:
                 uploaded_photo = st.file_uploader(
                     "Upload product photo",
@@ -1254,80 +1411,122 @@ with tab1:
                 )
                 if uploaded_photo:
                     captured_img = Image.open(uploaded_photo).convert("RGB")
+                    st.session_state["scanner_captured_img"] = captured_img
+                elif "scanner_captured_img" in st.session_state:
+                    captured_img = st.session_state["scanner_captured_img"]
 
             # Show captured image + barcode + optional OCR
             if captured_img:
                 st.image(captured_img, caption="Captured product", width='stretch')
                 st.caption("💡 *Tip: Frame the product close-up with the label/barcode facing the camera*")
 
-                # Auto-scan barcode + lookup product info
-                barcode_text = scan_barcode(captured_img)
-                barcode_info = {}
-                if barcode_text:
-                    st.success(f"📊 **Barcode detected:** `{barcode_text}`")
-                    with st.spinner("Looking up product info from barcode..."):
-                        barcode_info = lookup_barcode_info(barcode_text)
-                    if barcode_info.get("name"):
-                        st.info(f"🏷️ **Auto-identified:** {barcode_info['name']}")
-                        if barcode_info.get("category"):
-                            st.caption(f"Category: {barcode_info['category']}")
+                # Check if we need to re-process (new image vs previously processed)
+                import hashlib
+                img_hash = hashlib.md5(np.array(captured_img).tobytes()[:10000]).hexdigest()
+                needs_processing = st.session_state.get("scanner_img_hash") != img_hash
+
+                if needs_processing:
+                    st.session_state["scanner_img_hash"] = img_hash
+
+                    # Auto-scan barcode + lookup product info
+                    barcode_text = scan_barcode(captured_img)
+                    barcode_info = {}
+                    if barcode_text:
+                        st.success(f"📊 **Barcode detected:** `{barcode_text}`")
+                        with st.spinner("Looking up product info from barcode..."):
+                            barcode_info = lookup_barcode_info(barcode_text)
+                        if barcode_info.get("name"):
+                            st.info(f"🏷️ **Auto-identified:** {barcode_info['name']}")
+                            if barcode_info.get("category"):
+                                st.caption(f"Category: {barcode_info['category']}")
+                        else:
+                            st.caption("Product not found in online database — enter name manually")
                     else:
-                        st.caption("Product not found in online database — enter name manually")
+                        st.caption("No barcode found (flip product to show barcode, or enter name manually)")
+
+                    # Optional OCR for name suggestion
+                    ocr_text = ""
+                    if st.checkbox("🔤 Run OCR to read label text", value=False, key="run_ocr"):
+                        ocr_reader = load_ocr()
+                        if ocr_reader:
+                            with st.spinner("Reading label text..."):
+                                ocr_text = extract_text_from_crop(ocr_reader, captured_img)
+                            if ocr_text:
+                                st.info(f"📝 **OCR detected:** {ocr_text}")
+                            else:
+                                st.caption("No readable text found on label")
+
+                    # ── rembg Background Removal (conditional) ──
+                    import cv2
+                    cropped_img = captured_img  # fallback to full image
+                    if use_rembg:
+                        try:
+                            from rembg import remove
+                            with st.spinner("✂️ Removing background (AI segmentation)..."):
+                                result = remove(captured_img)
+                                alpha = np.array(result.split()[-1])
+                                coords = np.where(alpha > 30)
+                                if len(coords[0]) > 0:
+                                    y_min, y_max = coords[0].min(), coords[0].max()
+                                    x_min, x_max = coords[1].min(), coords[1].max()
+                                    pad = 5
+                                    h, w = alpha.shape
+                                    x1 = max(0, x_min - pad)
+                                    y1 = max(0, y_min - pad)
+                                    x2 = min(w, x_max + pad)
+                                    y2 = min(h, y_max + pad)
+                                    cropped_img = captured_img.crop((x1, y1, x2, y2))
+                                    st.success("✂️ Product perfectly cropped (AI background removal)")
+                                    st.image(cropped_img, caption="Auto-cropped product (display only — embedding uses original)", width=250)
+                                else:
+                                    st.caption("ℹ️ Using full image")
+                        except ImportError:
+                            st.caption("ℹ️ rembg not installed — using full image")
+                        except Exception as e:
+                            st.caption(f"ℹ️ Using full image (crop error: {e})")
+                    else:
+                        st.caption("ℹ️ rembg OFF — using full image (no background removal)")
+
+                    # Store for form submission
+                    st.session_state["scanner_cropped"] = cropped_img
+                    st.session_state["scanner_full_img"] = captured_img
+                    auto_name = barcode_info.get("name", "") or ocr_text
+                    st.session_state["scanner_ocr_text"] = auto_name
+                    st.session_state["scanner_barcode"] = barcode_text or ""
+                    st.session_state["scanner_barcode_info"] = barcode_info
+
+                    # ── Augmented Views Grid ──
+                    dinov2_model = load_dinov2_finetuned() if dinov2_choice == "Fine-tuned (ViT-B/14)" else load_dinov2()
+                    if dinov2_model:
+                        with st.spinner(f"Generating 15 augmented views ({dinov2_choice})..."):
+                            # Always embed from ORIGINAL image (not rembg crop)
+                            # rembg removes background → domain mismatch with shelf queries → lower scores
+                            result = get_robust_embedding(dinov2_model, captured_img, return_views=True)
+                            emb_vec, aug_views, view_names = result
+                            st.session_state["scanner_aug_views"] = aug_views
+                            st.session_state["scanner_view_names"] = view_names
+                            st.session_state["scanner_embedding"] = emb_vec
+
                 else:
-                    st.caption("No barcode found (flip product to show barcode, or enter name manually)")
+                    # Restore cached results (no re-processing needed)
+                    cropped_img = st.session_state.get("scanner_cropped", captured_img)
+                    if st.session_state.get("scanner_barcode"):
+                        st.success(f"📊 **Barcode:** `{st.session_state['scanner_barcode']}`")
+                    if st.session_state.get("scanner_ocr_text"):
+                        st.info(f"🏷️ **Product:** {st.session_state['scanner_ocr_text']}")
+                    if cropped_img != captured_img:
+                        st.image(cropped_img, caption="Auto-cropped product (display only)", width=250)
 
-                # Optional OCR for name suggestion
-                ocr_text = ""
-                if st.checkbox("🔤 Run OCR to read label text", value=False, key="run_ocr"):
-                    ocr_reader = load_ocr()
-                    if ocr_reader:
-                        with st.spinner("Reading label text..."):
-                            ocr_text = extract_text_from_crop(ocr_reader, captured_img)
-                        if ocr_text:
-                            st.info(f"📝 **OCR detected:** {ocr_text}")
-                        else:
-                            st.caption("No readable text found on label")
-
-                # ── rembg Background Removal for perfect product crop ──
-                import cv2
-                cropped_img = captured_img  # fallback to full image
-                try:
-                    from rembg import remove
-                    with st.spinner("✂️ Removing background (AI segmentation)..."):
-                        # Remove background → returns RGBA image
-                        result = remove(captured_img)
-                        # Get alpha channel to find product boundaries
-                        alpha = np.array(result.split()[-1])  # Alpha channel
-                        # Find bounding box of non-transparent pixels
-                        coords = np.where(alpha > 30)
-                        if len(coords[0]) > 0:
-                            y_min, y_max = coords[0].min(), coords[0].max()
-                            x_min, x_max = coords[1].min(), coords[1].max()
-                            pad = 5
-                            h, w = alpha.shape
-                            x1 = max(0, x_min - pad)
-                            y1 = max(0, y_min - pad)
-                            x2 = min(w, x_max + pad)
-                            y2 = min(h, y_max + pad)
-                            # Crop the ORIGINAL image (not the transparent one)
-                            cropped_img = captured_img.crop((x1, y1, x2, y2))
-                            st.success("✂️ Product perfectly cropped (AI background removal)")
-                            st.image(cropped_img, caption="Auto-cropped product (used for embedding)", width=250)
-                        else:
-                            st.caption("ℹ️ Using full image")
-                except ImportError:
-                    st.caption("ℹ️ rembg not installed — using full image")
-                except Exception as e:
-                    st.caption(f"ℹ️ Using full image (crop error: {e})")
-
-                # Store for form submission
-                st.session_state["scanner_cropped"] = cropped_img  # Cropped for embedding
-                st.session_state["scanner_full_img"] = captured_img  # Full for reference
-                # Priority: barcode name > OCR text > empty
-                auto_name = barcode_info.get("name", "") or ocr_text
-                st.session_state["scanner_ocr_text"] = auto_name
-                st.session_state["scanner_barcode"] = barcode_text or ""
-                st.session_state["scanner_barcode_info"] = barcode_info
+                # Display augmented views (from cache or fresh)
+                aug_views = st.session_state.get("scanner_aug_views")
+                view_names = st.session_state.get("scanner_view_names")
+                if aug_views and view_names:
+                    st.markdown(f"**🔄 {len(aug_views)} Augmented Views ({dinov2_choice}):**")
+                    for row_start in range(0, len(aug_views), 5):
+                        row = st.columns(5)
+                        for i in range(row_start, min(row_start + 5, len(aug_views))):
+                            with row[i - row_start]:
+                                st.image(aug_views[i], caption=view_names[i], width="content")
 
         with col_form:
             st.markdown("##### Product Details")
@@ -1335,21 +1534,57 @@ with tab1:
             default_name = st.session_state.get("scanner_ocr_text", "")
             default_barcode = st.session_state.get("scanner_barcode", "")
 
-            # Voice input via Web Speech API
-            voice_html = """
-            <div style="margin-bottom:8px;">
+            # Voice input via Web Speech API — auto-fills Name, Price, Category
+            import streamlit.components.v1 as components
+            components.html("""
+            <div style="margin-bottom:4px; font-family: 'Source Sans Pro', sans-serif;">
                 <button id="voiceBtn" onclick="startVoice()" style="
                     background: linear-gradient(135deg, #6366f1, #8b5cf6);
                     color: white; border: none; padding: 8px 16px;
                     border-radius: 8px; cursor: pointer; font-size: 14px;
                     display: inline-flex; align-items: center; gap: 6px;
-                ">🎤 Speak Product Name</button>
-                <span id="voiceStatus" style="color:#aaa; font-size:13px; margin-left:8px;"></span>
+                ">🎤 Speak Product Details</button>
+                <span id="voiceStatus" style="color:#aaa; font-size:13px; margin-left:8px;">
+                    Say: "Coca Cola 330ml price 40 rupees"
+                </span>
             </div>
             <script>
+            // Helper: set React-controlled input value
+            function setInput(input, value) {
+                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                setter.call(input, value);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            // Helper: find Streamlit input by placeholder or label text
+            function findInput(searchText) {
+                const doc = window.parent.document;
+                // Try by placeholder (text inputs)
+                let el = doc.querySelector('input[placeholder*="' + searchText + '"]');
+                if (el) return el;
+                // Try by label — walk up multiple parent levels to find the input
+                const labels = doc.querySelectorAll('label');
+                for (const lbl of labels) {
+                    if (lbl.textContent.includes(searchText)) {
+                        // Search in progressively larger parent containers
+                        let container = lbl.parentElement;
+                        for (let depth = 0; depth < 5 && container; depth++) {
+                            el = container.querySelector('input[type="text"], input[type="number"], input:not([type])');
+                            if (el) return el;
+                            container = container.parentElement;
+                        }
+                    }
+                }
+                return null;
+            }
+
+            // Voice only handles name + price. Category is auto-detected
+            // from the product IMAGE using FAISS (Python-side, see below).
+
             function startVoice() {
                 if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                    document.getElementById('voiceStatus').innerText = '❌ Speech not supported in this browser';
+                    document.getElementById('voiceStatus').innerText = '❌ Speech not supported';
                     return;
                 }
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1362,22 +1597,82 @@ with tab1:
                 document.getElementById('voiceStatus').innerText = 'Speak now...';
                 recognition.start();
                 recognition.onresult = function(event) {
-                    const text = event.results[0][0].transcript;
-                    document.getElementById('voiceStatus').innerText = '✅ ' + text;
+                    let text = event.results[0][0].transcript;
                     document.getElementById('voiceBtn').style.background = 'linear-gradient(135deg, #6366f1, #8b5cf6)';
-                    document.getElementById('voiceBtn').innerHTML = '🎤 Speak Product Name';
-                    // Send to Streamlit
-                    window.parent.postMessage({type: 'streamlit:setComponentValue', value: text}, '*');
+                    document.getElementById('voiceBtn').innerHTML = '🎤 Speak Product Details';
+
+                    // Extract price — handles speech variants: rupees, ruppees, rupay, rs, price
+                    let price = '';
+                    const pricePatterns = [
+                        /(?:price|₹|rs\.?)\s*(\d+\.?\d*)/i,
+                        /(\d+\.?\d*)\s*(?:rupees?|ruppees?|rupay|rupaiye?|rs\.?)/i,
+                        /(?:rupees?|ruppees?|rupay|rupaiye?)\s*(\d+\.?\d*)/i,
+                    ];
+                    for (const pattern of pricePatterns) {
+                        const m = text.match(pattern);
+                        if (m) {
+                            price = m[1];
+                            text = text.replace(m[0], '').trim();
+                            break;
+                        }
+                    }
+
+                    // Clean up name — remove filler words
+                    let productName = text.replace(/^\s*(the|a|an|its?|and)\s+/i, '').trim();
+                    productName = productName.replace(/\s+/g, ' ').trim();
+                    if (productName.length > 0) {
+                        productName = productName.charAt(0).toUpperCase() + productName.slice(1);
+                    }
+
+                    document.getElementById('voiceStatus').innerText = '✅ ' + productName + (price ? ' | ₹' + price : '');
+
+                    // Auto-fill Product Name
+                    const nameInput = findInput('Coca-Cola');
+                    if (nameInput) setInput(nameInput, productName);
+
+                    // Auto-fill Price (number input)
+                    if (price) {
+                        const priceInput = findInput('Price');
+                        if (priceInput) {
+                            setInput(priceInput, price);
+                            // Also dispatch for React number input
+                            priceInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                        }
+                    }
+
+                    // Category is auto-detected from the product IMAGE
+                    // via FAISS on the Python side (not from voice text)
                 };
                 recognition.onerror = function(e) {
                     document.getElementById('voiceStatus').innerText = '❌ ' + e.error;
                     document.getElementById('voiceBtn').style.background = 'linear-gradient(135deg, #6366f1, #8b5cf6)';
-                    document.getElementById('voiceBtn').innerHTML = '🎤 Speak Product Name';
+                    document.getElementById('voiceBtn').innerHTML = '🎤 Speak Product Details';
                 };
             }
             </script>
-            """
-            st.markdown(voice_html, unsafe_allow_html=True)
+            """, height=50)
+
+            # ── Auto-detect category from product image via FAISS ──
+            categories = [
+                "Beverages", "Snacks", "Dairy", "Canned Goods",
+                "Bakery", "Cleaning", "Personal Care", "Frozen",
+                "Fruits & Vegetables", "Other"
+            ]
+            suggested_category_idx = len(categories) - 1  # Default: "Other"
+            if "scanner_embedding" in st.session_state:
+                try:
+                    catalog = load_catalog()
+                    faiss_idx, faiss_prods = build_faiss_index(catalog)
+                    if faiss_idx and faiss_prods:
+                        query_emb = np.array([st.session_state["scanner_embedding"]], dtype=np.float32)
+                        scores, indices = faiss_idx.search(query_emb, 1)
+                        if float(scores[0][0]) >= 0.5:
+                            matched_cat = faiss_prods[int(indices[0][0])].get("category", "Other")
+                            if matched_cat in categories:
+                                suggested_category_idx = categories.index(matched_cat)
+                                st.caption(f"🧠 Category auto-suggested from similar product (similarity: {float(scores[0][0]):.2f})")
+                except Exception:
+                    pass
 
             with st.form("product_form", clear_on_submit=True):
                 prod_name = st.text_input("Product Name *", value=default_name, placeholder="e.g., Coca-Cola 330ml (or use 🎤 above)")
@@ -1386,11 +1681,7 @@ with tab1:
                 with p_cols[0]:
                     prod_price = st.number_input("Price (₹)", min_value=0.0, value=0.0, step=0.5)
                 with p_cols[1]:
-                    prod_category = st.selectbox("Category", [
-                        "Beverages", "Snacks", "Dairy", "Canned Goods",
-                        "Bakery", "Cleaning", "Personal Care", "Frozen",
-                        "Fruits & Vegetables", "Other"
-                    ])
+                    prod_category = st.selectbox("Category", categories, index=suggested_category_idx)
 
                 submitted = st.form_submit_button("✅ Register Product", type="primary", width='stretch')
 
@@ -1398,7 +1689,7 @@ with tab1:
                     # Use auto-cropped image if available
                     reg_img = st.session_state.get("scanner_cropped", captured_img)
                     if reg_img:
-                        with st.spinner("Registering product (DINOv2 embedding)..."):
+                        with st.spinner("Registering product..."):
                             next_id = get_next_product_id()
                             sku_id = f"SKU_{next_id:04d}"
 
@@ -1407,26 +1698,15 @@ with tab1:
                             img_path = REF_IMG_DIR / img_filename
                             reg_img.save(str(img_path), "JPEG", quality=90)
 
-                            # Generate robust DINOv2 embedding (10 views averaged)
-                            dinov2 = load_dinov2()
+                            # Use pre-computed embedding from augmented views grid
                             embedding = None
-                            if dinov2:
-                                result = get_robust_embedding(dinov2, reg_img, return_views=True)
-                                emb_vec, aug_views, view_names = result
-                                embedding = emb_vec.tolist()
-                                # Show the 10 augmented views in 2 rows
-                                st.markdown("**🔄 10 Augmented Views (robust embedding):**")
-                                # Row 1: views 1-5
-                                row1 = st.columns(5)
-                                for i in range(min(5, len(aug_views))):
-                                    with row1[i]:
-                                        st.image(aug_views[i], caption=view_names[i], width="content")
-                                # Row 2: views 6-10
-                                if len(aug_views) > 5:
-                                    row2 = st.columns(5)
-                                    for i in range(5, min(10, len(aug_views))):
-                                        with row2[i - 5]:
-                                            st.image(aug_views[i], caption=view_names[i], width="content")
+                            if "scanner_embedding" in st.session_state:
+                                embedding = st.session_state["scanner_embedding"].tolist()
+                            else:
+                                dinov2 = load_dinov2_finetuned() if dinov2_choice == "Fine-tuned (ViT-B/14)" else load_dinov2()
+                                if dinov2:
+                                    emb_vec = get_robust_embedding(dinov2, reg_img)
+                                    embedding = emb_vec.tolist()
 
                             # Save to SQLite database
                             add_product(
@@ -1438,6 +1718,11 @@ with tab1:
                                 embedding=embedding,
                                 barcode=prod_barcode if prod_barcode else None,
                             )
+
+                            # Clear augmented views from session
+                            for key in ["scanner_aug_views", "scanner_view_names", "scanner_embedding",
+                                        "scanner_cropped", "scanner_full_img", "scanner_ocr_text", "scanner_barcode"]:
+                                st.session_state.pop(key, None)
 
                             st.success(f"✅ **{prod_name}** registered as **{sku_id}** in database!")
                             st.rerun()
@@ -1452,56 +1737,203 @@ with tab1:
     else:
         st.markdown("""
         **How it works:**  
-        1️⃣ Upload a store shelf image → 2️⃣ YOLO detects all products → 3️⃣ DINOv2 clusters unique ones →  
+        1️⃣ Capture/upload a store shelf image → 2️⃣ Detector finds all products → 3️⃣ DINOv2 clusters unique ones →  
         4️⃣ OCR reads text from each → 5️⃣ Label & register all unique products at once!
         """)
 
-        shelf_upload = st.file_uploader(
-            "📤 Upload Store Shelf Image",
-            type=["jpg", "jpeg", "png"],
-            key="bulk_shelf_upload"
+        # ── Model Selector ──
+        toggle_cols2 = st.columns(2)
+        with toggle_cols2[0]:
+            det_model_choice = st.radio(
+                "🔧 Detection Model",
+                ["⚡ YOLO26s (Fine-tuned)", "🎯 RF-DETR (Fine-tuned)"],
+                horizontal=True, key="det_model_choice",
+                help="Compare detection accuracy between YOLO26s and RF-DETR on the same shelf image"
+            )
+        with toggle_cols2[1]:
+            bulk_dinov2_choice = st.radio(
+                "🧠 DINOv2 Model",
+                ["Pretrained (ViT-S/14)", "Fine-tuned (ViT-B/14)"],
+                horizontal=True, key="bulk_dinov2_choice",
+                help="Compare pretrained vs fine-tuned DINOv2 for clustering"
+            )
+
+        # ── Shelf Image Source (Phone / Laptop Camera / Upload) ──
+        shelf_source = st.radio(
+            "Image Source",
+            ["📱 Phone Camera", "💻 Laptop Camera", "📁 Upload"],
+            horizontal=True, key="bulk_shelf_source"
         )
 
-        if shelf_upload:
-            shelf_img = Image.open(shelf_upload).convert("RGB")
-            st.image(shelf_img, caption=f"Uploaded shelf ({shelf_img.size[0]}×{shelf_img.size[1]})", width='stretch')
+        shelf_img = None
+        if shelf_source == "📱 Phone Camera":
+            st.info("Point your phone at the store shelf, then click capture 👇")
+            if st.button("📸 Capture Shelf from Phone", type="primary", key="phone_cap_bulk"):
+                phone_img = capture_from_phone(phone_cam_url, phone_rotation)
+                if phone_img:
+                    st.session_state["bulk_shelf_phone_img"] = phone_img
+            if "bulk_shelf_phone_img" in st.session_state:
+                shelf_img = st.session_state["bulk_shelf_phone_img"]
+
+        elif shelf_source == "💻 Laptop Camera":
+            camera_photo = st.camera_input("Point camera at the store shelf", key="bulk_shelf_cam")
+            if camera_photo:
+                shelf_img = Image.open(camera_photo).convert("RGB")
+                st.session_state["bulk_shelf_cam_img"] = shelf_img
+            elif "bulk_shelf_cam_img" in st.session_state:
+                shelf_img = st.session_state["bulk_shelf_cam_img"]
+
+        else:
+            shelf_upload = st.file_uploader(
+                "📤 Upload Store Shelf Image",
+                type=["jpg", "jpeg", "png"],
+                key="bulk_shelf_upload"
+            )
+            if shelf_upload:
+                shelf_img = Image.open(shelf_upload).convert("RGB")
+                st.session_state["bulk_shelf_upload_img"] = shelf_img
+            elif "bulk_shelf_upload_img" in st.session_state:
+                shelf_img = st.session_state["bulk_shelf_upload_img"]
+
+        if shelf_img:
+            # Detect if shelf image changed — clear stale results
+            import hashlib
+            shelf_hash = hashlib.md5(np.array(shelf_img).tobytes()[:10000]).hexdigest()
+            if st.session_state.get("bulk_shelf_hash") != shelf_hash:
+                st.session_state["bulk_shelf_hash"] = shelf_hash
+                # Clear old results when image changes
+                st.session_state.pop("bulk_unique_products", None)
+                st.session_state.pop("bulk_shelf_img", None)
+
+            st.image(shelf_img, caption=f"Shelf image ({shelf_img.size[0]}×{shelf_img.size[1]})", width='stretch')
+
+            # ── Detection Confidence Threshold ──
+            bulk_conf = st.slider(
+                "Detection Confidence Threshold", 0.15, 0.90, 0.35, 0.05,
+                key="bulk_conf_threshold",
+                help="Higher = fewer false positives (shadows, reflections). Lower = catches more products but may include noise."
+            )
 
             # Detection + Clustering
             if st.button("🔍 Detect & Extract Unique Products", type="primary", key="bulk_detect"):
-                yolo = load_yolo()
-                dinov2 = load_dinov2()
+                # Load selected detection model
+                if det_model_choice == "🎯 RF-DETR (Fine-tuned)":
+                    det_model = load_rfdetr()
+                    model_name = "RF-DETR"
+                else:
+                    det_model = load_yolo()
+                    model_name = "YOLO26s"
+                dinov2 = load_dinov2_finetuned() if bulk_dinov2_choice == "Fine-tuned (ViT-B/14)" else load_dinov2()
+                dinov2_label = "Fine-tuned + Projector (256-dim)" if bulk_dinov2_choice == "Fine-tuned (ViT-B/14)" else "Pretrained (384-dim)"
 
-                if yolo and dinov2:
-                    with st.spinner("Step 1/3: Detecting products with YOLO..."):
-                        all_crops = detect_all_products(shelf_img, yolo, conf=0.3)
-                        st.info(f"🔍 Detected **{len(all_crops)}** product instances")
+                if det_model and dinov2:
+                    with st.spinner(f"Step 1/2: Detecting products with {model_name}..."):
+                        raw_crops = detect_all_products(shelf_img, det_model, conf=bulk_conf)
+                        raw_count = len(raw_crops)
+
+                        # ── Filter false positives (shadows, reflections, non-products) ──
+                        img_w, img_h = shelf_img.size
+                        img_area = img_w * img_h
+                        min_crop_area = img_area * 0.001  # Must be at least 0.1% of image area
+                        max_crop_area = img_area * 0.25   # Can't be more than 25% of image
+                        min_dimension = 20  # Minimum 20px in both width and height
+
+                        all_crops = []
+                        filtered_count = 0
+                        for crop, bbox, conf_score in raw_crops:
+                            bx1, by1, bx2, by2 = bbox
+                            crop_w = bx2 - bx1
+                            crop_h = by2 - by1
+                            crop_area = crop_w * crop_h
+
+                            # Filter 1: Too small (shadows, noise, floor reflections)
+                            if crop_area < min_crop_area or crop_w < min_dimension or crop_h < min_dimension:
+                                filtered_count += 1
+                                continue
+
+                            # Filter 2: Too large (entire shelf detected as one object)
+                            if crop_area > max_crop_area:
+                                filtered_count += 1
+                                continue
+
+                            # Filter 3: Extreme aspect ratio (tube lights, shelf edges, signage)
+                            aspect = max(crop_w, crop_h) / max(min(crop_w, crop_h), 1)
+                            if aspect > 6.0:  # Products rarely have >6:1 aspect ratio
+                                filtered_count += 1
+                                continue
+
+                            all_crops.append((crop, bbox, conf_score))
+
+                        if filtered_count > 0:
+                            st.caption(f"🧹 Filtered {filtered_count} false positives (shadows, reflections, non-products)")
+                        st.info(f"🔍 **{model_name}** detected **{len(all_crops)}** valid products (from {raw_count} raw detections)")
 
                         # Draw all detections on image
                         annotated = shelf_img.copy()
                         draw = ImageDraw.Draw(annotated)
-                        for crop, bbox, conf in all_crops:
-                            draw.rectangle(bbox, outline="lime", width=2)
-                        st.image(annotated, caption=f"All detections ({len(all_crops)} products)", width='stretch')
+                        for crop, bbox, conf_score in all_crops:
+                            draw.rectangle(bbox, outline="lime", width=8)
+                        st.image(annotated, caption=f"{model_name} — Filtered detections ({len(all_crops)} products)", width='stretch')
 
                     if all_crops:
-                        with st.spinner("Step 2/3: Clustering unique products with DINOv2..."):
-                            unique = cluster_unique_products(all_crops, dinov2, similarity_threshold=0.82)
+                        with st.spinner(f"Step 2/2: Clustering unique products with DINOv2 {dinov2_label}..."):
+                            unique = cluster_unique_products(all_crops, dinov2, similarity_threshold=0.72)
                             st.success(f"✅ Found **{len(unique)}** unique product types from {len(all_crops)} detections")
 
-                        with st.spinner("Step 3/3: Reading text with OCR..."):
-                            ocr_reader = load_ocr()
-                            for prod in unique:
-                                if ocr_reader:
-                                    prod["ocr_text"] = extract_text_from_crop(ocr_reader, prod["crop"])
-                                else:
-                                    prod["ocr_text"] = ""
+                        # OCR disabled — user types product names manually during registration
+                        for prod in unique:
+                            prod["ocr_text"] = ""
+
+                        # ── Draw labeled annotated image with product names ──
+                        import colorsys
+                        def generate_distinct_colors(n):
+                            """Generate N visually distinct colors using HSV space."""
+                            colors = []
+                            for i in range(n):
+                                hue = i / max(n, 1)  # evenly spaced hues
+                                sat = 0.9 + (i % 2) * 0.1  # high saturation for vivid colors
+                                val = 1.0  # full brightness for maximum visibility
+                                r, g, b = colorsys.hsv_to_rgb(hue, min(sat, 1.0), val)
+                                colors.append(f"#{int(r*255):02X}{int(g*255):02X}{int(b*255):02X}")
+                            return colors
+
+                        label_colors = generate_distinct_colors(len(unique))
+                        labeled_img = shelf_img.copy()
+                        labeled_draw = ImageDraw.Draw(labeled_img)
+                        # Try to load a readable font
+                        try:
+                            from PIL import ImageFont
+                            font = ImageFont.truetype("arial.ttf", 18)
+                            font_small = ImageFont.truetype("arial.ttf", 14)
+                        except Exception:
+                            font = ImageFont.load_default()
+                            font_small = font
+
+                        for i, prod in enumerate(unique):
+                            color = label_colors[i % len(label_colors)]
+                            label_name = prod.get("ocr_text", "")[:25] or f"Product_{i+1}"
+                            prod["display_label"] = label_name  # Store for later use
+
+                            for bbox in prod.get("member_bboxes", [prod["bbox"]]):
+                                x1, y1, x2, y2 = bbox
+                                labeled_draw.rectangle(bbox, outline=color, width=8)
+                                # Draw label background above the box
+                                tag = f"#{i+1} {label_name}"
+                                text_bbox = labeled_draw.textbbox((x1, y1), tag, font=font_small)
+                                tw, th = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
+                                label_y = max(0, y1 - th - 6)
+                                labeled_draw.rectangle([x1, label_y, x1 + tw + 8, label_y + th + 4], fill=color)
+                                labeled_draw.text((x1 + 4, label_y + 2), tag, fill="black", font=font_small)
+
+                        st.image(labeled_img, caption=f"Clustered — {len(unique)} unique products labeled", width='stretch')
 
                         # Store in session state
                         st.session_state["bulk_unique_products"] = unique
+                        st.session_state["bulk_shelf_img"] = shelf_img
                     else:
                         st.warning("No products detected. Try an image with more visible products.")
                 else:
-                    st.error("Models not loaded. Check YOLO and DINOv2.")
+                    st.error(f"{model_name} or DINOv2 not loaded. Check model files.")
 
         # ── Display unique products for labeling ──────────────────────
         if "bulk_unique_products" in st.session_state:
@@ -1567,8 +1999,12 @@ with tab1:
                     img_path = REF_IMG_DIR / img_filename
                     prod["crop"].save(str(img_path), "JPEG", quality=90)
 
-                    # Use pre-computed embedding
-                    embedding = prod.get("embedding")
+                    # Compute robust 15-view averaged embedding for registration
+                    progress.progress((j + 0.5) / len(selected), text=f"Computing robust embedding for {label['name']}...")
+                    if dinov2:
+                        embedding = get_robust_embedding(dinov2, prod["crop"]).tolist()
+                    else:
+                        embedding = prod.get("embedding")  # fallback to single-view
 
                     # Save to database
                     add_product(
@@ -1588,6 +2024,94 @@ with tab1:
                 if "bulk_unique_products" in st.session_state:
                     del st.session_state["bulk_unique_products"]
                 st.rerun()
+
+            # ── FAISS Similarity Visualization ─────────────────────────────
+            st.markdown("---")
+            st.markdown("##### 🔍 FAISS Embedding Similarity Analysis")
+            st.caption("Each detected unique product is queried against the catalog. Shows how well DINOv2 embeddings differentiate products.")
+
+            catalog = load_catalog()
+            if len(catalog["products"]) >= 2:
+                import faiss
+                faiss_index, faiss_products = build_faiss_index(catalog)
+                if faiss_index and faiss_products:
+                    # Determine index dimension for compatibility check
+                    index_dim = faiss_index.d
+
+                    # Load matching DINOv2 model if needed for re-embedding
+                    reembed_model = None  # Will be loaded lazily on dimension mismatch
+
+                    for i, prod in enumerate(unique_products):
+                        emb = prod.get("embedding")
+                        if emb is None:
+                            continue
+
+                        emb = np.array(emb, dtype=np.float32)
+
+                        # ── Dimension mismatch guard ──
+                        if emb.shape[0] != index_dim:
+                            # Re-embed the crop with the model that matches the catalog
+                            if reembed_model is None:
+                                if index_dim == 256:
+                                    reembed_model = load_dinov2_finetuned()
+                                else:
+                                    reembed_model = load_dinov2()
+                            if reembed_model is not None:
+                                emb = get_embedding(reembed_model, prod["crop"])
+                                emb = np.array(emb, dtype=np.float32)
+                            else:
+                                continue  # Skip if we can't match dimensions
+
+                        label_name = prod.get("display_label", prod.get("ocr_text", "")[:25] or f"Product_{i+1}")
+
+                        # Query FAISS for top-3 matches
+                        query = np.array([emb], dtype=np.float32)
+                        k = min(3, len(faiss_products))
+                        scores, indices = faiss_index.search(query, k)
+
+                        with st.container():
+                            st.markdown(f"**#{i+1} {label_name}** (×{prod['count']} instances)")
+                            match_cols = st.columns([1] + [1] * k + [1])
+
+                            # Query image
+                            with match_cols[0]:
+                                st.image(prod["crop"], caption="🔎 Query", width=100)
+
+                            # Top matches from catalog
+                            for m in range(k):
+                                idx = int(indices[0][m])
+                                score = float(scores[0][m])
+                                matched = faiss_products[idx]
+                                with match_cols[m + 1]:
+                                    # Try to load catalog image
+                                    cat_img_path = REF_IMG_DIR / matched.get("image_path", "")
+                                    if cat_img_path.exists():
+                                        cat_img = Image.open(str(cat_img_path)).convert("RGB")
+                                        st.image(cat_img, width=100)
+                                    else:
+                                        st.caption("🖼️ No image")
+                                    # Color code similarity
+                                    if score >= 0.85:
+                                        badge = f"🟢 {score:.3f}"
+                                    elif score >= 0.65:
+                                        badge = f"🟡 {score:.3f}"
+                                    else:
+                                        badge = f"🔴 {score:.3f}"
+                                    st.caption(f"{badge}\n{matched.get('name', 'Unknown')[:20]}")
+
+                            with match_cols[-1]:
+                                best_score = float(scores[0][0])
+                                if best_score >= 0.85:
+                                    st.success("✅ Match")
+                                elif best_score >= 0.65:
+                                    st.warning("⚠️ Weak")
+                                else:
+                                    st.error("❌ New")
+                            st.markdown("---")
+                else:
+                    st.info("ℹ️ FAISS index empty — register products first to see similarity analysis.")
+            else:
+                st.info("ℹ️ Need 2+ registered products in catalog to run FAISS analysis.")
 
     # ── Product Gallery (shared between both modes) ───────────────────
     st.markdown("---")
@@ -1632,21 +2156,26 @@ with tab1:
         # Initialize selection state
         if "del_selected" not in st.session_state:
             st.session_state["del_selected"] = set()
+
+        # Select All / Clear: must set each checkbox key BEFORE they render
         if select_all:
+            for p in catalog["products"]:
+                st.session_state[f"chk_{p['sku']}"] = True
             st.session_state["del_selected"] = {p["sku"] for p in catalog["products"]}
         if clear_sel:
+            for p in catalog["products"]:
+                st.session_state[f"chk_{p['sku']}"] = False
             st.session_state["del_selected"] = set()
 
         # Product list with checkboxes + images
         for product in catalog["products"]:
             sku = product["sku"]
-            checked = sku in st.session_state.get("del_selected", set())
             cols = st.columns([0.3, 0.5, 2, 1.5, 1])
             with cols[0]:
-                is_checked = st.checkbox("", value=checked, key=f"chk_{sku}", label_visibility="collapsed")
+                is_checked = st.checkbox("", key=f"chk_{sku}", label_visibility="collapsed")
                 if is_checked:
                     st.session_state["del_selected"].add(sku)
-                elif sku in st.session_state.get("del_selected", set()):
+                else:
                     st.session_state["del_selected"].discard(sku)
             with cols[1]:
                 img_file = product.get("image_path", product.get("image", ""))
@@ -1700,39 +2229,77 @@ with tab2:
     else:
         st.success(f"✅ {n_products} products in database — ready to create planograms!", icon="✅")
 
+        # If an edit was triggered, default to Manual Editor
+        plano_modes = ["📸 Auto-Detect from Shelf Image", "✏️ Manual Planogram Editor"]
+        default_mode_idx = 1 if "edit_planogram_data" in st.session_state else 0
+
         # Mode selection
         plano_mode = st.radio(
             "Creation Mode",
-            ["📸 Auto-Detect from Shelf Image", "✏️ Manual Planogram Editor"],
+            plano_modes,
+            index=default_mode_idx,
             horizontal=True, key="plano_mode"
         )
 
     # ── MANUAL PLANOGRAM EDITOR ──────────────────────────────────
     if plano_mode == "✏️ Manual Planogram Editor":
-        st.markdown("##### ✏️ Manual Planogram Builder")
-        st.caption("Select products and quantities for each shelf. 100% accurate — you define exactly what goes where.")
+        # Check if editing existing planogram
+        editing = "edit_planogram_data" in st.session_state
+        edit_data = st.session_state.get("edit_planogram_data", {})
+        edit_name = st.session_state.get("edit_planogram_name", "")
 
-        manual_name = st.text_input("Planogram Name", value="Manual_Shelf_1", key="manual_plano_name")
-        n_shelves = st.number_input("Number of Shelves", min_value=1, max_value=10, value=2, key="manual_n_shelves")
+        if editing:
+            st.markdown(f"##### ✏️ Editing Planogram: **{edit_name}**")
+            st.caption("Modify products and quantities, then click Update to save changes.")
+            if st.button("❌ Cancel Edit", key="cancel_edit"):
+                st.session_state.pop("edit_planogram_name", None)
+                st.session_state.pop("edit_planogram_data", None)
+                st.rerun()
+        else:
+            st.markdown("##### ✏️ Manual Planogram Builder")
+            st.caption("Select products and quantities for each shelf. 100% accurate — you define exactly what goes where.")
+
+        # Pre-fill name and shelves from edit data
+        default_name = edit_name if editing else "Manual_Shelf_1"
+        default_shelves = edit_data.get("n_shelves", 2) if editing else 2
+
+        manual_name = st.text_input("Planogram Name", value=default_name, key="manual_plano_name")
+        n_shelves = st.number_input("Number of Shelves", min_value=1, max_value=10, value=int(default_shelves), key="manual_n_shelves")
 
         product_names = [p["name"] for p in catalog["products"] if p.get("embedding")]
         product_lookup = {p["name"]: p for p in catalog["products"] if p.get("embedding")}
 
+        # Build default selections from edit data
+        edit_shelves = edit_data.get("shelves", []) if editing else []
+
         manual_shelves = []
         for shelf_idx in range(int(n_shelves)):
             st.markdown(f"---\n**Shelf {shelf_idx + 1}**")
+
+            # Get default products and quantities for this shelf from edit data
+            default_products = []
+            default_quantities = {}
+            if shelf_idx < len(edit_shelves):
+                shelf_data = edit_shelves[shelf_idx]
+                from collections import Counter
+                name_counts = Counter(p["name"] for p in shelf_data.get("products", []))
+                default_products = [n for n in name_counts.keys() if n in product_names]
+                default_quantities = dict(name_counts)
+
             shelf_cols = st.columns([3, 1])
             with shelf_cols[0]:
                 selected_products = st.multiselect(
                     f"Products on Shelf {shelf_idx + 1}",
                     product_names,
+                    default=default_products,
                     key=f"manual_shelf_{shelf_idx}_products"
                 )
             with shelf_cols[1]:
                 quantities = {}
                 for prod_name in selected_products:
+                    default_qty = default_quantities.get(prod_name, 1)
                     qty = st.number_input(
-                        f"Qty: {prod_name[:15]}", min_value=1, max_value=20, value=1,
+                        f"Qty: {prod_name[:15]}", min_value=1, max_value=20, value=int(default_qty),
                         key=f"manual_qty_{shelf_idx}_{prod_name}"
                     )
                     quantities[prod_name] = qty
@@ -1747,7 +2314,7 @@ with tab2:
                         "sku": prod["sku"],
                         "name": prod["name"],
                         "confidence": 1.0,
-                        "bbox": [0, 0, 0, 0],  # No bbox for manual
+                        "bbox": [0, 0, 0, 0],
                     })
                     pos += 1
             manual_shelves.append({
@@ -1765,7 +2332,14 @@ with tab2:
         st.markdown("---")
         total_manual = sum(s["product_count"] for s in manual_shelves)
         if total_manual > 0:
-            if st.button("✅ Save Manual Planogram", type="primary", width='stretch'):
+            btn_label = f"✅ Update Planogram" if editing else "✅ Save Manual Planogram"
+            if st.button(btn_label, type="primary", width='stretch'):
+                # If editing with a new name, delete the old one
+                if editing and manual_name != edit_name:
+                    delete_planogram(edit_name)
+                    old_ref = PLANOGRAM_DIR / f"{edit_name}_reference.jpg"
+                    old_ref.unlink(missing_ok=True)
+
                 planogram_data = {
                     "name": manual_name,
                     "created_at": datetime.now().isoformat(),
@@ -1774,7 +2348,13 @@ with tab2:
                     "shelves": manual_shelves,
                 }
                 save_planogram(manual_name, planogram_data)
-                st.success(f"✅ Manual planogram **{manual_name}** saved with {int(n_shelves)} shelves and {total_manual} products!")
+
+                # Clear edit state
+                st.session_state.pop("edit_planogram_name", None)
+                st.session_state.pop("edit_planogram_data", None)
+
+                action = "Updated" if editing else "Saved"
+                st.success(f"✅ {action} planogram **{manual_name}** with {int(n_shelves)} shelves and {total_manual} products!")
                 st.balloons()
         else:
             st.info("Add products to at least one shelf to save.")
@@ -1928,10 +2508,18 @@ with tab2:
                 if ref_img.exists():
                     st.image(str(ref_img), caption=f"Reference: {name}", width='stretch')
 
-                if st.button(f"🗑️ Delete {name}", key=f"del_{name}"):
-                    delete_planogram(name)
-                    ref_img.unlink(missing_ok=True)
-                    st.rerun()
+                btn_cols = st.columns([1, 1, 3])
+                with btn_cols[0]:
+                    if st.button(f"✏️ Edit {name}", key=f"edit_{name}"):
+                        # Load planogram data into session state for editing
+                        st.session_state["edit_planogram_name"] = name
+                        st.session_state["edit_planogram_data"] = data
+                        st.rerun()
+                with btn_cols[1]:
+                    if st.button(f"🗑️ Delete {name}", key=f"del_{name}"):
+                        delete_planogram(name)
+                        ref_img.unlink(missing_ok=True)
+                        st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -2729,7 +3317,95 @@ with tab5:
 # ══════════════════════════════════════════════════════════════════════════
 with tab6:
     st.markdown('<div class="section-header">📓 Model Training Results</div>', unsafe_allow_html=True)
-    st.caption("Performance metrics from YOLO, DINOv2, and LightGBM training on Kaggle T4 GPU.")
+    st.caption("Performance metrics from YOLO, RF-DETR, DINOv2, and LightGBM training.")
+
+    # ── Detection Model Comparison ──
+    st.markdown("##### 🏆 Detection Model Comparison — YOLO26s vs RF-DETR")
+
+    comp_cols = st.columns(2)
+    with comp_cols[0]:
+        st.markdown("""<div class="metric-card">
+            <div class="metric-value" style="font-size: 1.2rem; background: linear-gradient(135deg, #00d4aa, #00a98f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">YOLO26s (Fine-tuned)</div>
+            <div class="metric-label">NMS-Free · Kaggle T4 · 30 epochs</div>
+            <br>
+            <table style="width: 100%; color: #8892b0; font-size: 0.85rem;">
+                <tr><td>mAP@50</td><td style="text-align: right; color: #00d4aa; font-weight: bold;">0.895</td></tr>
+                <tr><td>mAP@50-95</td><td style="text-align: right; color: #00d4aa;">0.559</td></tr>
+                <tr><td>Precision</td><td style="text-align: right;">0.907</td></tr>
+                <tr><td>Recall</td><td style="text-align: right;">0.848</td></tr>
+                <tr><td>F1 Score</td><td style="text-align: right;">0.876</td></tr>
+                <tr><td>Parameters</td><td style="text-align: right;">9.9M</td></tr>
+                <tr><td>Model Size</td><td style="text-align: right;">20.3 MB</td></tr>
+                <tr><td>Inference</td><td style="text-align: right; color: #00d4aa;">3.9 ms/img</td></tr>
+                <tr><td>Training Time</td><td style="text-align: right;">2.6 hrs</td></tr>
+                <tr><td>GPU</td><td style="text-align: right;">Tesla T4 (16GB)</td></tr>
+            </table>
+        </div>""", unsafe_allow_html=True)
+
+    with comp_cols[1]:
+        st.markdown("""<div class="metric-card">
+            <div class="metric-value" style="font-size: 1.2rem; background: linear-gradient(135deg, #7c3aed, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">RF-DETR-Base (Fine-tuned)</div>
+            <div class="metric-label">Transformer · Lightning.ai L4 · 30 epochs</div>
+            <br>
+            <table style="width: 100%; color: #8892b0; font-size: 0.85rem;">
+                <tr><td>mAP@50</td><td style="text-align: right; color: #a78bfa; font-weight: bold;">0.887</td></tr>
+                <tr><td>mAP@50-95</td><td style="text-align: right; color: #a78bfa;">0.547</td></tr>
+                <tr><td>Precision</td><td style="text-align: right;">0.911</td></tr>
+                <tr><td>Recall</td><td style="text-align: right;">0.847</td></tr>
+                <tr><td>F1 Score</td><td style="text-align: right;">0.878</td></tr>
+                <tr><td>Parameters</td><td style="text-align: right;">~29M</td></tr>
+                <tr><td>Model Size</td><td style="text-align: right;">~130 MB</td></tr>
+                <tr><td>Inference</td><td style="text-align: right;">~15 ms/img</td></tr>
+                <tr><td>Training Time</td><td style="text-align: right;">~4 hrs</td></tr>
+                <tr><td>GPU</td><td style="text-align: right;">L4 (24GB)</td></tr>
+            </table>
+        </div>""", unsafe_allow_html=True)
+
+    # ── Key Insights ──
+    st.markdown("---")
+    st.markdown("##### 📊 Key Insights")
+    insight_cols = st.columns(3)
+    with insight_cols[0]:
+        st.markdown("""<div class="alert-ok">
+            <strong>🏆 YOLO26s Wins on Speed</strong><br>
+            • 3.9ms vs ~15ms inference<br>
+            • 6.5× smaller model (20 vs 130 MB)<br>
+            • Ideal for real-time live monitoring
+        </div>""", unsafe_allow_html=True)
+    with insight_cols[1]:
+        st.markdown("""<div class="alert-info">
+            <strong>🎯 RF-DETR: Higher Precision</strong><br>
+            • 0.911 Precision (vs 0.907 YOLO)<br>
+            • DINOv2 backbone for richer features<br>
+            • Better for high-accuracy tasks
+        </div>""", unsafe_allow_html=True)
+    with insight_cols[2]:
+        st.markdown("""<div class="alert-info">
+            <strong>⚖️ Both Models Comparable</strong><br>
+            • mAP@50 within 0.8% of each other<br>
+            • Recall nearly identical (~0.848)<br>
+            • ShelfMind uses both for flexibility
+        </div>""", unsafe_allow_html=True)
+
+    # ── Training Config Comparison Table ──
+    st.markdown("---")
+    st.markdown("##### ⚙️ Training Configuration Comparison")
+
+    import pandas as pd
+    config_data = {
+        "Config": ["Dataset", "Images (Train/Val)", "Annotations", "Epochs", "Batch Size",
+                    "Effective Batch", "Optimizer", "Learning Rate", "Resolution", "Platform"],
+        "YOLO26s": ["SKU-110K", "8,219 / 588", "1.2M bboxes", "30", "16",
+                     "64 (NBS)", "AdamW", "0.002", "640×640", "Kaggle T4"],
+        "RF-DETR-Base": ["SKU-110K", "8,219 / 588", "1.2M bboxes", "30", "2",
+                          "16 (grad_accum=8)", "AdamW", "1e-4", "Multi-scale", "Lightning.ai L4"],
+    }
+    config_df = pd.DataFrame(config_data)
+    st.dataframe(config_df, hide_index=True, use_container_width=True)
+
+    # ── Existing Training Visualizations ──
+    st.markdown("---")
+    st.markdown("##### 📈 Training Visualizations")
 
     if VIZ_DIR.exists():
         viz_files = sorted(VIZ_DIR.glob("*.png"))
@@ -2749,7 +3425,7 @@ with tab6:
     # Model info cards
     st.markdown("---")
     st.markdown("##### 🏗️ Model Architecture")
-    arch_cols = st.columns(3)
+    arch_cols = st.columns(4)
     with arch_cols[0]:
         st.markdown("""<div class="metric-card">
             <div class="metric-value" style="font-size: 1.3rem;">YOLO26s</div>
@@ -2759,29 +3435,46 @@ with tab6:
             • NMS-free architecture<br>
             • Trained on SKU-110K dataset<br>
             • 43% faster on CPU vs YOLO11<br>
-            • STAL: small-target-aware
+            • STAL: small-target-aware<br>
+            • 9.9M params · 22.5 GFLOPs
             </small>
         </div>""", unsafe_allow_html=True)
     with arch_cols[1]:
+        st.markdown("""<div class="metric-card">
+            <div class="metric-value" style="font-size: 1.3rem;">RF-DETR-Base</div>
+            <div class="metric-label">Object Detection</div>
+            <br>
+            <small style="color: #8892b0;">
+            • Transformer attention (ICLR 2026)<br>
+            • DINOv2 ViT backbone<br>
+            • Trained on SKU-110K dataset<br>
+            • Higher precision for dense shelves<br>
+            • ~29M params
+            </small>
+        </div>""", unsafe_allow_html=True)
+    with arch_cols[2]:
         st.markdown("""<div class="metric-card">
             <div class="metric-value" style="font-size: 1.3rem;">DINOv2 ViT-S/14</div>
             <div class="metric-label">SKU Recognition</div>
             <br>
             <small style="color: #8892b0;">
             • Self-supervised learning<br>
-            • 768-dim embeddings<br>
-            • FAISS cosine similarity search
+            • 768-dim embeddings (fine-tuned)<br>
+            • 384-dim embeddings (pretrained)<br>
+            • FAISS cosine similarity search<br>
+            • 15-view robust augmentation
             </small>
         </div>""", unsafe_allow_html=True)
-    with arch_cols[2]:
+    with arch_cols[3]:
         st.markdown("""<div class="metric-card">
             <div class="metric-value" style="font-size: 1.3rem;">LightGBM</div>
             <div class="metric-label">Demand Forecasting</div>
             <br>
             <small style="color: #8892b0;">
             • Trained on Walmart M5 data<br>
-            • 15 features including temporal, price, SNAP<br>
-            • SHAP explainability
+            • 15 features (temporal, price, SNAP)<br>
+            • SHAP explainability<br>
+            • Auto-replenishment alerts
             </small>
         </div>""", unsafe_allow_html=True)
 
@@ -2789,5 +3482,5 @@ with tab6:
 # ── Footer ────────────────────────────────────────────────────────────────
 st.markdown("""<div class="footer">
     ShelfMind AI — Smart Retail Shelf Intelligence — Built for Hackathon 2026<br>
-    <small>YOLO v11s + DINOv2 + FAISS + LightGBM + SHAP | Computer Vision-Driven Inventory Monitoring</small>
+    <small>YOLO26s + RF-DETR + DINOv2 + FAISS + LightGBM + SHAP | Computer Vision-Driven Inventory Monitoring</small>
 </div>""", unsafe_allow_html=True)
