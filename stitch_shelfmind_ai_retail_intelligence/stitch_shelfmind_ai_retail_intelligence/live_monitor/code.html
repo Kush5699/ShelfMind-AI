@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Live Monitor | ShelfMind AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-container": "#733e00",
+                    "outline-variant": "#3b4a44",
+                    "on-secondary-fixed-variant": "#442bb5",
+                    "tertiary-fixed-dim": "#ffb77a",
+                    "on-tertiary-fixed-variant": "#6c3a00",
+                    "secondary-fixed-dim": "#c8bfff",
+                    "on-primary-fixed-variant": "#00513f",
+                    "surface": "#12131a",
+                    "on-background": "#e3e1eb",
+                    "on-tertiary-fixed": "#2e1500",
+                    "secondary-fixed": "#e5deff",
+                    "on-tertiary": "#4c2700",
+                    "secondary-container": "#442bb5",
+                    "surface-container-high": "#292a31",
+                    "on-secondary": "#2d009d",
+                    "on-primary-fixed": "#002118",
+                    "error-container": "#93000a",
+                    "on-surface-variant": "#bacac2",
+                    "inverse-on-surface": "#2f3037",
+                    "surface-container-highest": "#33343c",
+                    "surface-dim": "#12131a",
+                    "on-secondary-container": "#b6abff",
+                    "surface-bright": "#383940",
+                    "surface-container-low": "#1a1b22",
+                    "on-secondary-fixed": "#190064",
+                    "surface-container": "#1e1f26",
+                    "secondary": "#c8bfff",
+                    "on-error": "#690005",
+                    "outline": "#85948d",
+                    "tertiary-fixed": "#ffdcc1",
+                    "on-primary": "#00382b",
+                    "surface-tint": "#28dfb5",
+                    "primary-fixed": "#55fcd0",
+                    "surface-variant": "#33343c",
+                    "primary-fixed-dim": "#28dfb5",
+                    "inverse-primary": "#006b55",
+                    "on-surface": "#e3e1eb",
+                    "surface-container-lowest": "#0d0e14",
+                    "inverse-surface": "#e3e1eb",
+                    "tertiary": "#ffcea6",
+                    "on-primary-container": "#005643",
+                    "error": "#ffb4ab",
+                    "primary": "#46f1c5",
+                    "tertiary-container": "#ffa858",
+                    "on-error-container": "#ffdad6",
+                    "primary-container": "#00d4aa",
+                    "background": "#12131a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "12px",
+                    "2xl": "24px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #12131a; color: #e3e1eb; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.06); }
+        .metric-gradient { background: linear-gradient(to right, #00d4aa, #00b4d8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .pulse-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background selection:bg-primary-container/30">
+<!-- Navigation Drawer (Desktop) -->
+<aside class="fixed left-0 top-0 h-screen z-40 hidden lg:flex flex-col bg-[#12131a]/95 backdrop-blur-xl rounded-r-3xl w-72 h-full shadow-[20px_0_40px_rgba(0,0,0,0.4)]">
+<div class="p-8">
+<h1 class="text-xl font-extrabold text-[#00d4aa] tracking-tighter uppercase font-['Inter']">🧠 ShelfMind AI</h1>
+</div>
+<nav class="flex-1 px-4 space-y-2">
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-white hover:bg-white/5" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-['Inter'] font-semibold tracking-tight">Dashboard</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-white hover:bg-white/5" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-['Inter'] font-semibold tracking-tight">Inventory</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 bg-gradient-to-r from-[#00d4aa]/20 to-transparent text-[#00d4aa] border-l-4 border-[#00d4aa]" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-['Inter'] font-semibold tracking-tight">Compliance</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-white hover:bg-white/5" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-['Inter'] font-semibold tracking-tight">AI Insights</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-white hover:bg-white/5" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-['Inter'] font-semibold tracking-tight">Settings</span>
+</a>
+</nav>
+<div class="p-6">
+<div class="bg-surface-container rounded-2xl p-4 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<p class="text-sm font-bold">Admin Store</p>
+<p class="text-xs text-slate-500">Unit #742</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top App Bar (Mobile) -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 lg:hidden bg-[#12131a]/80 backdrop-blur-md border-b border-white/10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#00d4aa]">menu</span>
+<span class="text-[#00d4aa] font-black font-['Inter'] font-bold text-lg uppercase tracking-[0.05em]">ShelfMind AI</span>
+</div>
+<div class="text-[#00d4aa] text-xs font-medium uppercase tracking-widest bg-[#00d4aa]/10 px-3 py-1 rounded-full">
+            Online • GPU
+        </div>
+</header>
+<!-- Main Canvas -->
+<main class="lg:ml-72 pt-20 lg:pt-0 p-4 lg:p-8 min-h-screen pb-24">
+<!-- Top Controls Area -->
+<section class="mb-8 flex flex-col md:flex-row gap-6 items-center justify-between">
+<div class="flex flex-wrap gap-4 items-center w-full md:w-auto">
+<div class="relative group">
+<label class="absolute -top-2.5 left-4 bg-background px-1 text-[10px] font-bold text-primary tracking-widest uppercase">Planogram Selector</label>
+<div class="bg-surface-container-low px-4 py-3 rounded-xl flex items-center gap-3 border-b-2 border-outline-variant focus-within:border-primary transition-colors">
+<span class="material-symbols-outlined text-slate-500">assignment</span>
+<select class="bg-transparent border-none focus:ring-0 text-sm font-semibold w-48">
+<option>Premium Beverages v4</option>
+<option>Confectionery Main</option>
+<option>Daily Essentials</option>
+</select>
+</div>
+</div>
+<div class="flex flex-col gap-1 flex-grow max-w-xs">
+<div class="flex justify-between px-1">
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Confidence Threshold</span>
+<span class="text-[10px] font-bold text-primary">85%</span>
+</div>
+<input class="w-full accent-primary bg-surface-container h-1.5 rounded-full appearance-none" type="range"/>
+</div>
+</div>
+<div class="flex gap-4 w-full md:w-auto">
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary-container text-on-primary font-bold px-6 py-3 rounded-2xl shadow-lg hover:translate-y-[-2px] transition-transform active:scale-95">
+<span class="material-symbols-outlined">play_arrow</span>
+                    Start Monitoring
+                </button>
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-error-container text-on-error-container font-bold px-6 py-3 rounded-2xl shadow-lg hover:translate-y-[-2px] transition-transform active:scale-95">
+<span class="material-symbols-outlined">stop</span>
+                    Stop
+                </button>
+</div>
+</section>
+<!-- Monitoring Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+<!-- Video Feed & Main View -->
+<div class="xl:col-span-8 space-y-6">
+<div class="relative aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl group border border-white/5">
+<img class="w-full h-full object-cover opacity-80" data-alt="CCTV perspective of a modern retail shelf filled with colorful beverage bottles, digital bounding boxes highlighting products in green and red" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdnj0s6LyFlc8O7NVWZ5REud9Np02GLL5UjRbe6XwaQSLD6BVvV_Jhz1fkwtiX06lMATDRc9CFIrSVRsq50aEXwK3XzAuuM5LjfPd6XSrPv28x5nvoYJ-KNXRWOdBjucHFxAQShZRp1RRA3d5Zjm3PeiR60kGcgEGeuc1ZV5jLOjVncrL3znEZd_X33LUAU6gqxUeSPsRuVeUx0KFqcNg1ZfJQAQnNdP5M7Ubv_RHnvfn4ESh359w0E-Gvkc9EkYWm3ZUCD-PGs9gW"/>
+<!-- Overlays -->
+<div class="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg flex items-center gap-2 border border-white/10">
+<span class="pulse-dot bg-error"></span>
+<span class="text-xs font-black tracking-tighter">LIVE FEED</span>
+</div>
+<!-- Bounding Box Mockups -->
+<div class="absolute top-[20%] left-[15%] w-[10%] h-[30%] border-2 border-primary/80 rounded-sm bg-primary/5 flex flex-col justify-end p-1">
+<span class="text-[8px] bg-primary text-on-primary px-1 font-bold">COKE_500ML 0.98</span>
+</div>
+<div class="absolute top-[20%] left-[26%] w-[10%] h-[30%] border-2 border-tertiary/80 rounded-sm bg-tertiary/5 flex flex-col justify-end p-1">
+<span class="text-[8px] bg-tertiary text-on-tertiary px-1 font-bold">PEPSI_500ML 0.72</span>
+</div>
+<div class="absolute top-[55%] left-[45%] w-[12%] h-[25%] border-2 border-error/80 rounded-sm bg-error/5 flex flex-col justify-end p-1">
+<span class="text-[8px] bg-error text-white px-1 font-bold">MISSING_SKU</span>
+</div>
+<!-- Video Controls Overlay -->
+<div class="absolute bottom-4 right-4 flex gap-2">
+<button class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-lg flex items-center justify-center text-white border border-white/10 hover:bg-white/20">
+<span class="material-symbols-outlined">fullscreen</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-lg flex items-center justify-center text-white border border-white/10 hover:bg-white/20">
+<span class="material-symbols-outlined">videocam</span>
+</button>
+</div>
+</div>
+<!-- Compliance Shelf Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="bg-surface-container-low p-6 rounded-2xl border-l-4 border-primary">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Shelf 1</span>
+<span class="text-primary font-bold text-lg">100%</span>
+</div>
+<p class="text-sm font-semibold mb-2">Optimal Stock</p>
+<div class="w-full bg-white/5 h-1.5 rounded-full">
+<div class="bg-primary h-full w-full rounded-full"></div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-2xl border-l-4 border-tertiary">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Shelf 2</span>
+<span class="text-tertiary font-bold text-lg">75%</span>
+</div>
+<p class="text-sm font-semibold mb-2 uppercase tracking-tighter text-tertiary">LOW_STOCK</p>
+<div class="w-full bg-white/5 h-1.5 rounded-full">
+<div class="bg-tertiary h-full w-[75%] rounded-full"></div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-2xl border-l-4 border-error">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Shelf 3</span>
+<span class="text-error font-bold text-lg">40%</span>
+</div>
+<p class="text-sm font-semibold mb-2 uppercase tracking-tighter text-error">STOCKOUT</p>
+<div class="w-full bg-white/5 h-1.5 rounded-full">
+<div class="bg-error h-full w-[40%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sidebar Analytics -->
+<aside class="xl:col-span-4 space-y-6">
+<!-- Metrics Stack -->
+<div class="glass p-8 rounded-2xl space-y-8 shadow-[0_20px_40px_rgba(0,0,0,0.4)] relative overflow-hidden">
+<!-- Tonal layer -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+<div>
+<span class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2 block">Global Compliance</span>
+<h2 class="text-5xl font-extrabold metric-gradient">87.3%</h2>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-1">
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Detected</span>
+<p class="text-2xl font-bold">12</p>
+</div>
+<div class="space-y-1">
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Expected</span>
+<p class="text-2xl font-bold">14</p>
+</div>
+<div class="space-y-1">
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Revenue at Risk</span>
+<p class="text-2xl font-bold text-error">₹240</p>
+</div>
+<div class="space-y-1">
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Scan</span>
+<p class="text-2xl font-bold text-secondary">#14</p>
+</div>
+</div>
+</div>
+<!-- Alert Log -->
+<div class="bg-surface-container-high rounded-2xl p-6 h-[400px] flex flex-col">
+<h3 class="text-sm font-bold uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">notifications_active</span>
+                        Incident Log
+                    </h3>
+<div class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+<div class="flex gap-4 items-start border-l-2 border-error pl-4 py-1">
+<div class="text-[10px] font-mono text-slate-500 mt-1">14:32:05</div>
+<div>
+<p class="text-sm font-bold text-error">Alert Sent</p>
+<p class="text-xs text-slate-400">Restock notification for Shelf 3: Stockout detected.</p>
+</div>
+</div>
+<div class="flex gap-4 items-start border-l-2 border-primary pl-4 py-1">
+<div class="text-[10px] font-mono text-slate-500 mt-1">14:30:12</div>
+<div>
+<p class="text-sm font-bold text-primary">System Recalibrated</p>
+<p class="text-xs text-slate-400">Confidence adjusted to 85% for low lighting.</p>
+</div>
+</div>
+<div class="flex gap-4 items-start border-l-2 border-tertiary pl-4 py-1">
+<div class="text-[10px] font-mono text-slate-500 mt-1">14:28:44</div>
+<div>
+<p class="text-sm font-bold text-tertiary">Misplacement Warning</p>
+<p class="text-xs text-slate-400">SKU Pepsi_500ml found in Zone B (incorrect).</p>
+</div>
+</div>
+<div class="flex gap-4 items-start border-l-2 border-slate-700 pl-4 py-1">
+<div class="text-[10px] font-mono text-slate-500 mt-1">14:25:00</div>
+<div>
+<p class="text-sm font-bold text-slate-300">New Scan Started</p>
+<p class="text-xs text-slate-400">Frame sequence batch #14 initialised.</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Bottom Navigation (Mobile) -->
+<footer class="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 pb-safe lg:hidden bg-[#12131a]/90 backdrop-blur-2xl border-t border-white/5 rounded-t-[24px] shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-slate-500 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">package_2</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Stock</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#00d4aa] drop-shadow-[0_0_8px_rgba(0,212,170,0.5)] transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">notifications_active</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Alerts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest">Profile</span>
+</a>
+</footer>
+</body></html>

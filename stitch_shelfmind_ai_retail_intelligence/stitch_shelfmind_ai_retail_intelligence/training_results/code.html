@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ShelfMind AI - Training Results</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-container": "#733e00",
+                    "outline-variant": "#3b4a44",
+                    "on-secondary-fixed-variant": "#442bb5",
+                    "tertiary-fixed-dim": "#ffb77a",
+                    "on-tertiary-fixed-variant": "#6c3a00",
+                    "secondary-fixed-dim": "#c8bfff",
+                    "on-primary-fixed-variant": "#00513f",
+                    "surface": "#12131a",
+                    "on-background": "#e3e1eb",
+                    "on-tertiary-fixed": "#2e1500",
+                    "secondary-fixed": "#e5deff",
+                    "on-tertiary": "#4c2700",
+                    "secondary-container": "#442bb5",
+                    "surface-container-high": "#292a31",
+                    "on-secondary": "#2d009d",
+                    "on-primary-fixed": "#002118",
+                    "error-container": "#93000a",
+                    "on-surface-variant": "#bacac2",
+                    "inverse-on-surface": "#2f3037",
+                    "surface-container-highest": "#33343c",
+                    "surface-dim": "#12131a",
+                    "on-secondary-container": "#b6abff",
+                    "surface-bright": "#383940",
+                    "surface-container-low": "#1a1b22",
+                    "on-secondary-fixed": "#190064",
+                    "surface-container": "#1e1f26",
+                    "secondary": "#c8bfff",
+                    "on-error": "#690005",
+                    "outline": "#85948d",
+                    "tertiary-fixed": "#ffdcc1",
+                    "on-primary": "#00382b",
+                    "surface-tint": "#28dfb5",
+                    "primary-fixed": "#55fcd0",
+                    "surface-variant": "#33343c",
+                    "primary-fixed-dim": "#28dfb5",
+                    "inverse-primary": "#006b55",
+                    "on-surface": "#e3e1eb",
+                    "surface-container-lowest": "#0d0e14",
+                    "inverse-surface": "#e3e1eb",
+                    "tertiary": "#ffcea6",
+                    "on-primary-container": "#005643",
+                    "error": "#ffb4ab",
+                    "primary": "#46f1c5",
+                    "tertiary-container": "#ffa858",
+                    "on-error-container": "#ffdad6",
+                    "primary-container": "#00d4aa",
+                    "background": "#12131a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "2xl": "1rem",
+                    "3xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #12131a; color: #e3e1eb; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .metric-gradient {
+            background: linear-gradient(to right, #00d4aa, #00b4d8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #46f1c5;
+            box-shadow: 0 0 0 0 rgba(70, 241, 197, 0.7);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(70, 241, 197, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(70, 241, 197, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(70, 241, 197, 0); }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-24 lg:pb-0 lg:pl-72">
+<!-- NavigationDrawer (Desktop) -->
+<nav class="fixed left-0 top-0 h-screen z-40 hidden lg:flex flex-col bg-[#12131a]/95 backdrop-blur-xl rounded-r-3xl w-72 shadow-2xl">
+<div class="p-8">
+<span class="text-xl font-extrabold text-[#00d4aa] tracking-tighter">🧠 ShelfMind AI</span>
+</div>
+<div class="flex-1 px-4 space-y-2">
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-semibold tracking-tight">Dashboard</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-semibold tracking-tight">Inventory</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-semibold tracking-tight">Compliance</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl bg-gradient-to-r from-[#00d4aa]/20 to-transparent text-[#00d4aa] border-l-4 border-[#00d4aa] scale-[0.98] active:scale-95 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-semibold tracking-tight">AI Insights</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-semibold tracking-tight">Settings</span>
+</a>
+</div>
+</nav>
+<!-- TopAppBar (Mobile) -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 lg:hidden bg-[#12131a]/80 backdrop-blur-md border-b border-white/10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#00d4aa]">menu</span>
+<span class="text-[#00d4aa] font-black uppercase tracking-[0.05em] text-lg">ShelfMind AI</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1 bg-surface-container-high rounded-full">
+<div class="pulse-dot"></div>
+<span class="text-[10px] font-bold text-primary uppercase tracking-wider">Online • GPU</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 lg:pt-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
+<!-- Header Section -->
+<section>
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h2 class="text-label-sm uppercase tracking-[0.2em] text-outline mb-2 font-bold">Neural Engine v2.4</h2>
+<h1 class="text-4xl md:text-5xl font-extrabold tracking-tighter text-on-background">Training Results</h1>
+</div>
+<div class="flex gap-4">
+<button class="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95">Re-Train Cluster</button>
+<button class="glass-card px-6 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-white/10">Export Weights</button>
+</div>
+</div>
+</section>
+<!-- Model Stats Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- YOLO26s Card -->
+<div class="md:col-span-2 glass-card rounded-[24px] p-8 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-6">
+<div class="space-y-1">
+<h3 class="text-xl font-bold">YOLO26s Object Detector</h3>
+<p class="text-sm text-slate-400">High-speed edge inference optimization</p>
+</div>
+<span class="bg-[#00d4aa]/10 text-[#00d4aa] text-[10px] px-3 py-1 rounded-full font-bold border border-[#00d4aa]/20">STABLE</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-8 mb-8">
+<div>
+<p class="text-xs uppercase tracking-widest text-slate-500 mb-1">Dataset Size</p>
+<p class="text-3xl font-bold metric-gradient">SKU-110K</p>
+</div>
+<div>
+<p class="text-xs uppercase tracking-widest text-slate-500 mb-1">mAP@50</p>
+<p class="text-3xl font-bold metric-gradient">0.895</p>
+</div>
+<div class="hidden md:block">
+<p class="text-xs uppercase tracking-widest text-slate-500 mb-1">Inference</p>
+<p class="text-3xl font-bold metric-gradient">12ms</p>
+</div>
+</div>
+</div>
+<div class="h-48 w-full bg-surface-container-lowest rounded-xl relative overflow-hidden border border-white/5">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-screen" data-alt="a professional dark mode line graph showing a steady upward trend of model accuracy during training with neon teal highlights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCA_SGJl72zBDTVDWx3UuPUlGaZUmkOCpHh1E_Q-4SUzmY5RVPSV34c8RLhpydb9QreC9oupCm5xUxByjfR00u1pEEEyyMDnPzj-Box3Um_SFASE95Sx2S4MBonRQmDxgrrT8qFIilhmD6kXgN3t3ALSnokqMRmrlK3_NZF1zjA1n9zDsuH9nvISESDtjPvCCt2oLzEMMSJyXnVTd8w2TDvLHRMAVaWOe57l5h86-M7uxuy5YqlTEu1uRszSVOhfZir2SMOT9STIMIQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-transparent"></div>
+<div class="absolute bottom-4 left-6 right-6 flex justify-between items-center">
+<span class="text-[10px] font-mono text-slate-500">EPOCHS 0-250</span>
+<span class="text-[10px] font-mono text-[#00d4aa]">CONVERGED AT 242</span>
+</div>
+</div>
+</div>
+<!-- DINOv2 Card -->
+<div class="glass-card rounded-[24px] p-8 flex flex-col">
+<div class="mb-6">
+<div class="w-12 h-12 rounded-2xl bg-secondary-container flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+<h3 class="text-xl font-bold">DINOv2 Embedder</h3>
+<p class="text-sm text-slate-400">SSL Feature extraction backbone</p>
+</div>
+<div class="space-y-4 flex-1">
+<div class="flex justify-between items-center py-3 border-b border-white/5">
+<span class="text-sm text-slate-300">Latent Dim</span>
+<span class="font-mono text-secondary">768-dim</span>
+</div>
+<div class="flex justify-between items-center py-3 border-b border-white/5">
+<span class="text-sm text-slate-300">Hardware</span>
+<span class="font-mono text-secondary">NVIDIA T4</span>
+</div>
+<div class="flex justify-between items-center py-3 border-b border-white/5">
+<span class="text-sm text-slate-300">Precision</span>
+<span class="font-mono text-secondary">FP16</span>
+</div>
+</div>
+<div class="mt-8 h-32 w-full bg-surface-container-lowest rounded-xl relative overflow-hidden">
+<img class="absolute inset-0 w-full h-full object-cover opacity-30" data-alt="abstract loss curve visualization with glowing purple lines decreasing over time on a dark technical background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdJHiL-EtRQtO9b7Jo7QXpkemwBBHcsImuvz4xWLzWj1NChKZn7cIZRx86YxkoXNtTqK3v7vGMcPFc38WwIN8o15kFe2cdMOr2wHIFRLaUy5M7AHx5sgceSnlw0vSpn6aEiW--vRo6vntd4Ye9mMZzqA75quZqvGmdE5MwfWLyorNwM80404g4JwUkv8ZzZTVZ4Wv56NASzEoXiNiK3NYUx7p8PMNtKEdhCB7-v10kQawZz6xAMk29HdrRY_477hpVPHMcitFXu0QI"/>
+</div>
+</div>
+</section>
+<!-- System Architecture Section -->
+<section class="glass-card rounded-[32px] p-10 overflow-hidden relative">
+<div class="relative z-10">
+<h3 class="text-2xl font-bold mb-10 text-center">Neural Architecture Flow</h3>
+<div class="grid grid-cols-1 md:grid-cols-5 items-center gap-4">
+<div class="flex flex-col items-center gap-3">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-slate-400">videocam</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-slate-500">Camera Feed</span>
+</div>
+<div class="hidden md:flex justify-center text-[#00d4aa]">
+<span class="material-symbols-outlined text-4xl">trending_flat</span>
+</div>
+<div class="flex flex-col items-center gap-3">
+<div class="w-20 h-20 rounded-3xl bg-primary-container flex items-center justify-center shadow-[0_0_30px_rgba(0,212,170,0.3)]">
+<span class="material-symbols-outlined text-on-primary-container scale-150" style="font-variation-settings: 'FILL' 1;">memory</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-primary">Inference Engine</span>
+</div>
+<div class="hidden md:flex justify-center text-[#c8bfff]">
+<span class="material-symbols-outlined text-4xl">trending_flat</span>
+</div>
+<div class="flex flex-col items-center gap-3">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-slate-400">notifications_active</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-widest text-slate-500">Alert Dispatch</span>
+</div>
+</div>
+</div>
+<!-- Decorative background element -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[1px] bg-gradient-to-r from-transparent via-[#00d4aa]/20 to-transparent hidden md:block"></div>
+</section>
+<!-- Visualizations Grid -->
+<section class="space-y-6">
+<div class="flex justify-between items-center">
+<h3 class="text-xl font-bold">Detection Samples &amp; Convergence</h3>
+<span class="text-xs font-mono text-slate-500">TIMESTAMP: 2023-11-24 14:22:01 UTC</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="aspect-square bg-surface-container-low rounded-2xl overflow-hidden group">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="supermarket shelf image with colorful product boxes overlayed with green bounding boxes and confidence scores for retail object detection" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIFcyeKZoGMBpjkqxpRuERmXtCVZNRZw5QcJARavKoqYaBtke9Es2k4xbir6n6VLIdRO-6nQF2RQ5nbnCTE0qj24S0wAxBdtUEt7lxZZ3mM2y2G1RqS_7TsraQ6on_B-rOIhxRBwmLWQ-GmSYinE5E6DPOoALNJd_hnFlHVsZN90CVopydyrmWN7_zJsm0J71kOrLjiPBX4ckSF-adi6wXPV6UneWED7t3Av3c-GEtaZe9qxDDY6VpLJ7EWhCMVR6YLW3GfOBDUlfZ"/>
+</div>
+<div class="aspect-square bg-surface-container-low rounded-2xl overflow-hidden group">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="close up of grocery items on a shelf with digital overlay of probability heatmaps in shades of violet and teal" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTfbwSNyMAsmRjowzsyDKoIy8uwr5z4U_BHRLJfVqJpFo0Io9ng3LAIirv4Ftok6gHkL8f5OUUW09iXNXZSfmeBamGySi8H3SsbwUztXyRM3WgkF-dc6tFNu5oikTYFFj3FKI_0zYlK-pfvJLjvjrJM0FGgWmkRbtOzELhPgBY3AENifcV-r1FQH5ChVcSVPgoBVbF36PbTgyU_XcTJt-XwhdJOjXkfJp6uMmnUmChiIVFvmpMvju3uzbxkNd_IMMU7mRPT9inIQeS"/>
+</div>
+<div class="aspect-square bg-surface-container-low rounded-2xl overflow-hidden group">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="technical grid display of training loss curves with various line colors indicating different hyperparameters on a dark sleek dashboard" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDH8gcmrYL03h1_iiaxeOngP5wX19EA1hX82fNtpd2BQkAiwEuGqV1SZ58YQbSFHeJVa6tRLc4YiZBgJ6KIbY7QIfVa6qWaGWoMkDzJ7cZW5oUf6wuWkPgsNRV0W_WsunDWvCt6cB69tiI1RtqBXeMV1T87C14yBir9c5S4w3ejLnggqX77FkgcDNG49cVTxcVhfT3jijjni6BbjjwAG2KfJld0oLIwp_I3cxqhJOwDDPVmLOxVxM7wX53P6_kjk-jhxWnPbAwvmrbL"/>
+</div>
+<div class="aspect-square bg-surface-container-low rounded-2xl overflow-hidden group">
+<img class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" data-alt="server rack in a dark data center with glowing blue lights representing the training environment for large AI models" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBuQPe20HIW-oD6waT2yseElUWp-MKprX4uOon6VdA9I7jcOA2skozpSIOjt14nAHls03r5IdqHAP2Y6JzDZKOFfWvI4mO36mOxCdgVYuTlBpBmaaJEuDjZ5oJpBNXmIULPJwKZSR-u5q9OO1zUDL7GPMb1fUik88sISgCHYsevQZL0BZJQAbTl-C23L20-KL490bjmXPPwfspljMWftK2B2HDA6iqv7E5y5WDu1XlAjU7GfKfLnkBkSUStWbKjXrXPdx3IwZD7lgD"/>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 pb-safe lg:hidden bg-[#12131a]/90 backdrop-blur-2xl border-t border-white/5 rounded-t-[24px] shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<button class="flex flex-col items-center justify-center text-slate-500 hover:text-[#46f1c5] transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined">home</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-500 hover:text-[#46f1c5] transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined">package_2</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Stock</span>
+</button>
+<button class="flex flex-col items-center justify-center text-[#00d4aa] drop-shadow-[0_0_8px_rgba(0,212,170,0.5)] active:scale-90 duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Insights</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-500 hover:text-[#46f1c5] transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined">notifications_active</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Alerts</span>
+</button>
+<button class="flex flex-col items-center justify-center text-slate-500 hover:text-[#46f1c5] transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Profile</span>
+</button>
+</nav>
+</body></html>

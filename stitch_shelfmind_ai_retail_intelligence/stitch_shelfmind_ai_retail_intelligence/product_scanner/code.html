@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ShelfMind AI - Product Scanner</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#733e00",
+                        "outline-variant": "#3b4a44",
+                        "on-secondary-fixed-variant": "#442bb5",
+                        "tertiary-fixed-dim": "#ffb77a",
+                        "on-tertiary-fixed-variant": "#6c3a00",
+                        "secondary-fixed-dim": "#c8bfff",
+                        "on-primary-fixed-variant": "#00513f",
+                        "surface": "#12131a",
+                        "on-background": "#e3e1eb",
+                        "on-tertiary-fixed": "#2e1500",
+                        "secondary-fixed": "#e5deff",
+                        "on-tertiary": "#4c2700",
+                        "secondary-container": "#442bb5",
+                        "surface-container-high": "#292a31",
+                        "on-secondary": "#2d009d",
+                        "on-primary-fixed": "#002118",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#bacac2",
+                        "inverse-on-surface": "#2f3037",
+                        "surface-container-highest": "#33343c",
+                        "surface-dim": "#12131a",
+                        "on-secondary-container": "#b6abff",
+                        "surface-bright": "#383940",
+                        "surface-container-low": "#1a1b22",
+                        "on-secondary-fixed": "#190064",
+                        "surface-container": "#1e1f26",
+                        "secondary": "#c8bfff",
+                        "on-error": "#690005",
+                        "outline": "#85948d",
+                        "tertiary-fixed": "#ffdcc1",
+                        "on-primary": "#00382b",
+                        "surface-tint": "#28dfb5",
+                        "primary-fixed": "#55fcd0",
+                        "surface-variant": "#33343c",
+                        "primary-fixed-dim": "#28dfb5",
+                        "inverse-primary": "#006b55",
+                        "on-surface": "#e3e1eb",
+                        "surface-container-lowest": "#0d0e14",
+                        "inverse-surface": "#e3e1eb",
+                        "tertiary": "#ffcea6",
+                        "on-primary-container": "#005643",
+                        "error": "#ffb4ab",
+                        "primary": "#46f1c5",
+                        "tertiary-container": "#ffa858",
+                        "on-error-container": "#ffdad6",
+                        "primary-container": "#00d4aa",
+                        "background": "#12131a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .metric-gradient {
+            background: linear-gradient(to right, #00d4aa, #00b4d8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        body {
+            background: radial-gradient(circle at top right, #1d3331, #12131a 40%);
+            min-height: 100vh;
+        }
+        .pulse-teal {
+            box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.4);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 212, 170, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 212, 170, 0); }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar (Mobile) -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 lg:hidden bg-[#12131a]/80 backdrop-blur-md border-b border-white/10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#00d4aa]">menu</span>
+<h1 class="font-['Inter'] font-bold text-lg uppercase tracking-[0.05em] text-[#00d4aa]">ShelfMind AI</h1>
+</div>
+<div class="text-slate-300 text-xs font-medium uppercase tracking-wider">
+            Online • GPU
+        </div>
+</header>
+<!-- NavigationDrawer (Desktop) -->
+<aside class="fixed left-0 top-0 h-screen z-40 hidden lg:flex flex-col bg-[#12131a]/95 backdrop-blur-xl rounded-r-3xl w-72 shadow-[20px_0_40px_rgba(0,0,0,0.4)]">
+<div class="p-8">
+<h2 class="text-xl font-extrabold text-[#00d4aa] tracking-tighter">🧠 ShelfMind AI</h2>
+</div>
+<nav class="flex-1 px-4 space-y-2">
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-semibold tracking-tight">Dashboard</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl bg-gradient-to-r from-[#00d4aa]/20 to-transparent text-[#00d4aa] border-l-4 border-[#00d4aa] transition-all duration-300" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-semibold tracking-tight">Inventory</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-semibold tracking-tight">Compliance</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-semibold tracking-tight">AI Insights</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-semibold tracking-tight">Settings</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content -->
+<main class="lg:ml-72 pt-20 lg:pt-8 pb-32 px-4 md:px-8 max-w-7xl mx-auto">
+<!-- Mode Toggle -->
+<div class="flex justify-center mb-8">
+<div class="inline-flex bg-surface-container-low p-1.5 rounded-2xl">
+<button class="px-8 py-2.5 rounded-xl bg-primary-container text-on-primary-container font-bold text-sm flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined text-lg">photo_camera</span>
+                    Single
+                </button>
+<button class="px-8 py-2.5 rounded-xl text-outline font-semibold text-sm flex items-center gap-2 hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-lg">store</span>
+                    Bulk
+                </button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Left Column: Camera and AI Insights -->
+<div class="lg:col-span-2 space-y-8">
+<!-- Camera Preview Area -->
+<section class="relative group aspect-video lg:aspect-[16/9] rounded-3xl overflow-hidden glass-card">
+<img class="w-full h-full object-cover opacity-60" data-alt="Modern supermarket checkout area with product scanning lens effect and holographic data overlays" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCuNezADMj3DVdELWjf5rM3vIyjBBdOIJCtJChnY7-3n3lSq05IKuvV6gLIUQOP0p8lyECHd2XDKmL0c_NEZnXuKakkMLVxcYrNF783J1E-BO0DvTBHf45rLg1lZmuEP_7JtetTXaubarxa0C7MOUbrxArpjeWvifmUjYUrq6-2FS6hSjUnhLFUpWkQRx-N7ZHlDfUP_SzXsJe_ZsZvXlAqKZtX9waaOXJ-vK3ZRpvWR6ISA0zV3LzvMypPP_ZQLLTkh9fcfvX-UE7"/>
+<!-- Scanner Overlay -->
+<div class="absolute inset-0 border-[2px] border-primary/30 m-12 rounded-2xl flex items-center justify-center">
+<div class="w-full h-0.5 bg-primary/40 absolute top-1/2 -translate-y-1/2 animate-pulse shadow-[0_0_15px_#46f1c5]"></div>
+</div>
+<!-- HUD elements -->
+<div class="absolute top-6 left-6 flex flex-col gap-2">
+<div class="glass-card px-3 py-1.5 rounded-full flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary animate-ping"></div>
+<span class="text-[10px] font-bold tracking-widest uppercase">Live Neural Feed</span>
+</div>
+</div>
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2">
+<button class="bg-gradient-to-r from-primary to-primary-container text-on-primary px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-2xl flex items-center gap-3 active:scale-95 transition-transform">
+<span class="material-symbols-outlined">camera</span>
+                            Capture SKU
+                        </button>
+</div>
+</section>
+<!-- Augmented Views Grid -->
+<section>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-lg font-semibold tracking-tight">Augmented Projections</h3>
+<span class="text-xs text-outline font-medium">10 VIEWPORTS ACTIVE</span>
+</div>
+<div class="grid grid-cols-5 md:grid-cols-10 gap-2">
+<!-- 10 Projection Cards -->
+<div class="aspect-square rounded-xl glass-card overflow-hidden">
+<img class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all" data-alt="Macro close-up of retail product packaging barcode and fine print" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqRWyBq_lGV6zgOuSD2DuzoL5IA_U7-KfFWIAX7b1KJBrrX6R7TvBW-HL-gWJfdtvrk2SNUmwrAB6cjJDkTyrFtK5CueMk7iaZtN9PDQhWDV12CjefEksbvq-8w1T0x8d9-0_6P99CrmppsuN3PUdpQLryXyim5VBHXHF93Eni3hpGh6p3ZTLSyICQ4qaM-Dn2u4tfkK8qjHQrRt8GIrPVi7Q8vGb_qakg9uEzICMhnm4YqZl9mOHrBjXJZbbIShPspHzRSKSq4Pco"/>
+</div>
+<div class="aspect-square rounded-xl glass-card overflow-hidden">
+<img class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all" data-alt="Supermarket aisle blurred background with floating teal light particles" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlBLf8woD2P9dWc-L-_8fzE6zvEO7U-mpIbht4OFi9Oi6HjfZMV5Mz21oJqVIUijBkRKtUIk2cfWPMV7yYbzXRAbCAN6rdXahOmvZmYjohSzlSkLaeyzPuWMxJx0C9pM_4TbqpCnfb8s1c7PMfjlnAHFj1w3GtyMr4eAUFwFdQI7TbhMz8j-sPpiFsBmM7kjDKCeMWP7QD7qdYI_24io4zv9OsVq_3YswzSscoZJhtU6Grsod_kC18G2nTu617Dz4jl4GGua1k0pRy"/>
+</div>
+<div class="aspect-square rounded-xl glass-card overflow-hidden">
+<img class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all" data-alt="Digital retail scanner pattern with tech interface lines" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDa5LtEs-pWxPDOFB1Ew6mTkMh6XWh2WdUu3RyeBRO4Kdcof5FR2rOD-ILafhIfnL7dgckDbabxaifSJ452v1HKSwaaVPUZAI7uGzC26JlSL8mMU1CBQSl-ygSlnYHyNXpPMeiIiDDfmMP6szjYKLeMyInw6nbSkmZK4fjTii9g5dI8pP-9ekJpbT81EQPBD-CdQ-kEp37VaieMo2uuObeoTbvQvQZ8ocsGI2mqAsOv4diyJF3enXHcHmBeYTLBjRuXSb8at6kU4TEw"/>
+</div>
+<div class="aspect-square rounded-xl glass-card overflow-hidden bg-primary/10 flex items-center justify-center border border-primary/20">
+<span class="material-symbols-outlined text-primary text-xl">view_in_ar</span>
+</div>
+<div class="aspect-square rounded-xl glass-card overflow-hidden">
+<div class="w-full h-full bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-outline text-lg">filter_center_focus</span>
+</div>
+</div>
+<div class="aspect-square rounded-xl glass-card overflow-hidden border border-white/5"></div>
+<div class="aspect-square rounded-xl glass-card overflow-hidden border border-white/5"></div>
+<div class="aspect-square rounded-xl glass-card overflow-hidden border border-white/5"></div>
+<div class="aspect-square rounded-xl glass-card overflow-hidden border border-white/5"></div>
+<div class="aspect-square rounded-xl glass-card overflow-hidden border border-white/5"></div>
+</div>
+</section>
+</div>
+<!-- Right Column: Registration Form -->
+<aside class="space-y-6">
+<div class="glass-card p-6 rounded-3xl space-y-6 sticky top-8">
+<div class="flex items-center justify-between">
+<h3 class="text-xl font-bold tracking-tight">Registration</h3>
+<button class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary pulse-teal">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mic</span>
+</button>
+</div>
+<div class="space-y-4">
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-widest text-outline">Product Identity</label>
+<input class="w-full bg-transparent border-b border-outline-variant focus:border-primary outline-none py-2 text-lg font-semibold transition-all" type="text" value="Parle-G Biscuits"/>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-widest text-outline">SKU / Barcode</label>
+<div class="flex items-center gap-2">
+<input class="w-full bg-transparent border-b border-outline-variant focus:border-primary outline-none py-2 font-mono text-sm tracking-tighter" type="text" value="8901030789456"/>
+<span class="material-symbols-outlined text-primary">verified</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-widest text-outline">Category</label>
+<select class="w-full bg-transparent border-b border-outline-variant focus:border-primary outline-none py-2 text-sm appearance-none">
+<option>FMCG / Snacks</option>
+<option>Dairy</option>
+<option>Beverages</option>
+</select>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-widest text-outline">Price ₹</label>
+<input class="w-full bg-transparent border-b border-outline-variant focus:border-primary outline-none py-2 font-bold text-primary" type="text" value="10.00"/>
+</div>
+</div>
+</div>
+<button class="w-full bg-primary-container text-on-primary-container font-black py-4 rounded-2xl shadow-xl hover:translate-y-[-4px] transition-all">
+                        REGISTER PRODUCT
+                    </button>
+<div class="pt-4 border-t border-white/5 space-y-3">
+<div class="flex justify-between items-center text-xs">
+<span class="text-outline">AI Confidence Score</span>
+<span class="text-primary font-bold">98.4%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[98.4%]"></div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- Metrics Section -->
+<section class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="glass-card p-6 rounded-3xl">
+<span class="text-[10px] font-bold uppercase tracking-[0.2em] text-outline block mb-2">Registered SKU</span>
+<div class="text-4xl font-bold metric-gradient">1,284</div>
+<div class="mt-4 flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span class="text-xs font-semibold">+12% vs last week</span>
+</div>
+</div>
+<div class="glass-card p-6 rounded-3xl">
+<span class="text-[10px] font-bold uppercase tracking-[0.2em] text-outline block mb-2">Vector Embeddings</span>
+<div class="text-4xl font-bold metric-gradient">42.8k</div>
+<div class="mt-4 flex items-center gap-2 text-secondary">
+<span class="material-symbols-outlined text-sm">auto_awesome</span>
+<span class="text-xs font-semibold">Multimodal indexed</span>
+</div>
+</div>
+<div class="glass-card p-6 rounded-3xl">
+<span class="text-[10px] font-bold uppercase tracking-[0.2em] text-outline block mb-2">FAISS Latency</span>
+<div class="text-4xl font-bold metric-gradient">14ms</div>
+<div class="mt-4 flex items-center gap-2 text-tertiary">
+<span class="material-symbols-outlined text-sm">bolt</span>
+<span class="text-xs font-semibold">Real-time edge sync</span>
+</div>
+</div>
+</section>
+<!-- Product Gallery Table -->
+<section class="mt-12 glass-card rounded-3xl overflow-hidden">
+<div class="p-6 border-b border-white/5 flex items-center justify-between">
+<h3 class="text-xl font-bold tracking-tight">Recent Scan Gallery</h3>
+<div class="flex gap-2">
+<button class="p-2 rounded-lg bg-white/5 text-outline hover:text-white transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+<button class="p-2 rounded-lg bg-white/5 text-outline hover:text-white transition-colors">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] font-bold uppercase tracking-[0.1em] text-outline bg-surface-container-low">
+<th class="px-6 py-4">Product Preview</th>
+<th class="px-6 py-4">SKU Code</th>
+<th class="px-6 py-4">Category</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4 text-right">M.R.P</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/5">
+<tr class="hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-xl overflow-hidden glass-card">
+<img class="w-full h-full object-cover" data-alt="Small pouch of salted snacks against dark moody backdrop" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChFce2FunfnZ1LK0i3TVXAakLTDeGV26xX4DVlHDzEii9LODf4KcFV3E4OBYOVmy1da9DXMzy4DqmGXjN-KFxGS0nXFL4pJ1QqVpPWC0zr3qSdZnv8SA61k9ajDrWHF84qSvK6xESlbOCiwJlPelxHET6tlLwPYwkOGLLNLqRz3J29sajfb0MMsgvZWemU5uMOL0v_hECP_6rqP9GY8P3mYnJ2iYJrxeVuw7Zo0cTvACvtFd7GAnGlnHMJisaYEwecPA1oqo2Khfyp"/>
+</div>
+<div>
+<div class="font-semibold text-sm">Kurkure Masala</div>
+<div class="text-[10px] text-outline">2 mins ago</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-xs text-slate-400">8901491100257</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded bg-secondary/10 text-secondary text-[10px] font-bold uppercase">Snacks</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#00d4aa]"></div>
+<span class="text-xs font-medium">Synced</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-bold text-primary">₹ 20.00</td>
+</tr>
+<tr class="hover:bg-white/5 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-xl overflow-hidden glass-card">
+<img class="w-full h-full object-cover" data-alt="Cold milk carton with condensation in dramatic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBuO3YJe7hcaigpk0apnNCoBBtsa6XWuesiwXocgQN2Qa1scNjNAjdWxB-yxTHcHspcA79UTY5ZtzetR-VQxv4yVNdStyuOb8Ti-o66bkWLr42uvgiAdLF1-02lyOtYmCCx1CsruIU1b6OJ64GjsT9n5HWJPgfUdJTSmvyX1gIH-hbv0uBctNe_dQn7hPozt_7rqQ4P7wHHIUz2WhiRRWVDMzyhR_i59teRYF-CqevNlejCkVsN_B0A3WXPVSo0vhC0BRgfnd1ThiV3"/>
+</div>
+<div>
+<div class="font-semibold text-sm">Amul Gold 500ml</div>
+<div class="text-[10px] text-outline">15 mins ago</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-xs text-slate-400">8901231013444</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded bg-secondary/10 text-secondary text-[10px] font-bold uppercase">Dairy</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_#00d4aa]"></div>
+<span class="text-xs font-medium">Synced</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right font-bold text-primary">₹ 33.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-6 bg-surface-container-low flex justify-center">
+<button class="text-[10px] font-bold tracking-[0.2em] text-outline hover:text-primary transition-all">VIEW FULL CATALOGUE</button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 pb-safe lg:hidden bg-[#12131a]/90 backdrop-blur-2xl border-t border-white/5 rounded-t-[24px] shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#00d4aa] drop-shadow-[0_0_8px_rgba(0,212,170,0.5)]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">package_2</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Stock</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">notifications_active</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Alerts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[10px] font-medium uppercase tracking-widest mt-1">Profile</span>
+</a>
+</nav>
+</body></html>
