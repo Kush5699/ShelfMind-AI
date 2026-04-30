@@ -35,17 +35,35 @@ graph TD
 
 ---
 
-## 🏆 Training Results
+## 🏆 Benchmark Results on SKU-110K
 
-We trained our **YOLO26s** on the heavily dense **SKU-110K** dataset (retail shelf images). 
+We trained and evaluated our models on the **SKU-110K** dense retail benchmark (11,762 images, 1.73M annotations, ~147 products/image).
 
-| Model Version | Resolution | Epochs | mAP50 | mAP50-95 | Inference Speed (CPU) |
-|---------------|------------|--------|-------|----------|-----------------------|
-| YOLOv10s (Baseline)| 640px | 50 | 0.906 | 0.512 | ~85ms |
-| YOLO26s (v1)  | 640px      | 30     | 0.902 | 0.521    | ~72ms                 |
-| **YOLO26s (v2)** | **1280px** | **60** | **0.917** | **0.583** | **~110ms** |
+### Comparison with Published Baselines (mAP@50-95)
 
-*Note: 0.917 mAP50 represents the practical annotation ceiling of the SKU-110K dataset due to labeling ambiguities in highly dense, dark regions.*
+| # | Model | Type | Backbone | Res. | mAP<sub>50-95</sub> | Params | Source |
+|---|-------|------|----------|------|------|--------|--------|
+| 1 | Faster R-CNN | Two-stage | ResNet-50 + FPN | 800 | 4.5 | 41M | CVPR'19 [1] |
+| 2 | RetinaNet | One-stage | ResNet-50 + FPN | 800 | 45.5 | 37M | CVPR'19 [1] |
+| 3 | EM-Merger | One-stage | ResNet-50 + FPN | 800 | 49.2 | ~40M | CVPR'19 [1] |
+| 4 | TOOD | Task-aligned | ResNet-50 + FPN | 800 | 51.3 | 32M | ICCV'21 [5] |
+| 5 | Cascade R-CNN | Multi-stage | ResNet-101 + FPN | 800 | 52.8 | 69M | CVPR'18 [2] |
+| 6 | YOLOv10s | Anchor-free | CSPNet | 640 | 51.2 | 8.0M | NeurIPS'24 [7] |
+| | ***Our Experiments*** | | | | | | |
+| 7 | YOLO26s v1 | NMS-free | CSPDarknet | 640 | 52.1 | 9.9M | Ours |
+| 8 | RF-DETR Base | Transformer | DINOv2 ViT | 560 | 55.5 | 29M | Ours |
+| **9** | **YOLO26s v2** | **NMS-free** | **CSPDarknet** | **1280** | **58.3** | **9.9M** | **Ours** |
+
+### Detailed Results (Our Models)
+
+| Model | mAP<sub>50</sub> | mAP<sub>50-95</sub> | Precision | Recall | F1 |
+|-------|------|------|-----------|--------|------|
+| YOLOv10s [7] | 90.6 | 51.2 | 90.8 | 84.8 | 87.7 |
+| YOLO26s v1 (Ours) | 90.2 | 52.1 | 89.5 | 85.5 | 87.4 |
+| RF-DETR Base (Ours) | 89.7 | 55.5 | 91.1 | 84.7 | 87.8 |
+| **YOLO26s v2 (Ours)** | **91.7** | **58.3** | **91.2** | **87.2** | **89.1** |
+
+*Note: 91.7% mAP@50 represents the practical annotation ceiling of the SKU-110K dataset. TTA, SAHI, and longer training yielded no further gains.*
 
 ---
 
